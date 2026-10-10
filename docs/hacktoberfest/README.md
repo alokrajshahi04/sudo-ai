@@ -2,41 +2,35 @@
 
 Prepared: 2026-10-10 (UTC).
 
-**Research status: partial; detailed event rules remain unverified.** The initial
-research session blocked network access. On 2026-10-10, network access was enabled
-and the event listing was successfully retrieved with HTTP 200. These notes
-preserve the supplied link, general background, and the questions that need
-official answers; the retrieved page has not yet been used to verify those
-answers. They do not establish the current event rules or the current year's
-Hacktoberfest requirements.
+Event and sponsor pages have been inspected. The selected product is **Sudo
+Launch**. The terminal frontend is connected to a local backend; the PRD, UI/UX
+spec, product overview, and bounded model instructions guide further work. Actual model/voice account access and the remaining capture/cloud automation
+integrations still need preflight/implementation checks.
 
 ## Documents
 
 | Document | Purpose |
 | --- | --- |
+| [Local development](../development.md) | Implemented backend, setup, API contracts, limits, and current verification. |
+| [PRD](prd.md) | Functional requirements, delivery priorities, architecture, acceptance, and build order. |
+| [UI/UX implementation](ui-ux.md) | Terminal design, screen contracts, responsive/accessibility behavior, and implemented preview. |
+| [Sudo Launch overview](ideation.md) | Product scope, research, integrations, model choice, hosted/local usage, and first demonstration. |
+| [Deployment and security](deployment-and-security.md) | Vercel/DigitalOcean paths, credential boundaries, risk fixes, and release gates. |
+| [Model instructions](model-harness.md) | Concrete bounded prompts, project profiles, evidence requirements, and runtime enforcement. |
 | [Event brief](event-brief.md) | Event identity, unverified logistics, and questions that affect idea scope. |
 | [Hacktoberfest context](hacktoberfest-context.md) | General contribution background and implications for planning. |
 | [Sources](sources.md) | Source links, retrieval status, and instructions for completing verification. |
 
-## What we know now
+## Current context
 
-- The participant intends to attend the supplied MLH event.
-- Update from the participant on 2026-10-10: they are currently at the event at
-  their university and have officially checked in to MLH.
-- Selected working repository: https://github.com/alokrajshahi04/sudo-ai.
-- The URL suggests the title “Hacktoberfest Hack Day Amaravati x FOSS SRM AP”; this is inferred from its slug, not a retrieved page title.
-- The present task is research and documentation. Idea selection comes later.
-- Attendance at a local event and qualification for the global Hacktoberfest program are separate matters to verify.
+- Participant is officially checked in, working solo, and using agent assistance.
+- Working repository: https://github.com/alokrajshahi04/sudo-ai.
+- Selected product: Sudo Launch. PokeChess is the preferred demonstration input.
+- Public submission deadline: October 11, 8:55 AM IST.
+- One submission may enter every published category it qualifies for.
+- Venue-specific ElevenLabs conditions and detailed judging weights remain unknown.
+- Global Hacktoberfest contribution qualification is separate and unverified.
 
-## What must be settled before choosing an idea
-
-The event date and duration, allowed work, contribution versus project-building
-expectations, team rules, required submissions, and any judging criteria remain
-unknown. The current Hacktoberfest qualification rules also remain unknown.
-
-Once source text is available, update the brief with attributed facts. Then we
-can discuss an idea against actual event constraints.
-
-The participant is currently ideating. Their confirmed attendance is sufficient
-to proceed with that discussion; verify any event rules that affect the selected
-idea as source access becomes available.
+See [the event brief](event-brief.md) and [sources](sources.md) for evidence and
+remaining verification. Event administration stays separate from the product
+scope in [the overview](ideation.md).

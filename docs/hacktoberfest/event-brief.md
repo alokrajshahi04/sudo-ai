@@ -1,65 +1,55 @@
 # Event brief
 
-Prepared: 2026-10-10 (UTC).
+Updated: 2026-10-10 (UTC). Event listing and published challenge pages inspected.
 
-## Identity and evidence
+## Confirmed context
 
-| Item | Current evidence |
+| Item | Evidence |
 | --- | --- |
-| Event link | https://www.mlh.com/events/hacktoberfest-hack-day-amaravati-x-foss-srm-ap |
-| Working title | Hacktoberfest Hack Day Amaravati x FOSS SRM AP; inferred from the URL slug. |
-| Participation | The user confirmed on 2026-10-10 that they are currently at the university event and officially checked in to MLH. Participant-provided. |
-| Working repository | https://github.com/alokrajshahi04/sudo-ai; selected by the user. Remote contents have not been inspected. |
-| Event year | Unverified. The URL contains no year; today's date does not establish the event year. |
-| Organizer, host, or partner roles | Unverified. MLH, Amaravati, and FOSS SRM AP appear in the supplied URL, but their exact roles require the listing. |
+| Event | Hacktoberfest Hack Day Amaravati x FOSS SRM AP; event listing title. |
+| Date and format | October 10–11, 2026; in person, Amaravati, Andhra Pradesh. The listing describes 12 hours of open-source building. |
+| Organizers | The description names Next Tech Lab and FOSS. |
+| Submission deadline | October 11, 8:55 AM IST; published event/challenge pages. |
+| Submission platform | Project submission through the MLH event page. |
+| Multiple categories | Each published challenge page says one submission can enter every category it qualifies for. |
+| Participation | Participant confirms official check-in and a solo entry. |
+| Working repository | https://github.com/alokrajshahi04/sudo-ai; initial documentation pushed, Sudo Launch application still in planning. |
 
-## Logistics to verify
+## Published categories
 
-| Detail | Status / information needed |
-| --- | --- |
-| Date and time | Exact date, start/end times, and timezone. |
-| Format and venue | In person, online, or hybrid; address, room, and campus entry instructions. |
-| Registration | Registration URL, deadline, fee if any, capacity, and confirmation process. |
-| Eligibility | Student/public access, age restrictions if any, and whether external participants can attend. |
-| Teams | Solo participation, team size, and any team formation process. |
-| Preparation | Laptop, account setup, prerequisites, and recommended tools. |
-| Schedule | Workshops, contribution sessions, build time, demos, and breaks. |
-| Support | Mentors, maintainers, starter repositories, and organizer contact channels. |
+**Best Use of Gemma 4** encourages focused AI tools, text/image understanding,
+and rapid prototyping with Gemma 4 through the Gemini API.
 
-## Scope and deliverables to verify
+**Best Open-Source AI Project** requires original work with meaningful
+open-source/open-weight AI, a public GitHub repository, and an open-source
+license. An agent skill must follow the Agent Skill Open Standard; a harness
+entry must include original implementation or meaningful adaptations. The
+challenge links to DigitalOcean resources; its published requirements do not
+state that DigitalOcean hosting or GPUs are mandatory.
 
-- Does the event focus on contributions to existing open-source projects, building a new project, workshops, or a combination?
-- Are there tracks, themes, sponsor challenges, or required repositories?
-- Can participants arrive with existing work, or must work begin during the event?
-- Are documentation, design, accessibility, testing, and other non-code contributions accepted locally?
-- What must be submitted: pull-request links, a repository, a demo, a presentation, or something else?
-- What are the submission deadline and submission platform?
-- Is the event judged? If so, what are the criteria and prize conditions?
-- Are there license, attribution, AI-tool, or third-party-service requirements?
-- Does the event require global Hacktoberfest registration, and how does it describe qualifying contributions?
-- Which conduct policy applies, and where are the reporting instructions?
+The participant additionally reports an **ElevenLabs** track announced at the
+venue. Its detailed judging and submission requirements remain unverified.
+The online event page listed two categories when inspected.
 
-No theme, prize, team limit, required language, or judging rubric is established
-by the evidence currently available.
+## Participant-provided resources
 
-## How these answers affect the later idea discussion
+- Approximately 11 hours available when reported; normal ASUS VivoBook.
+- Model access planned through AI Studio/Gemini API, with a Nebius option.
+- One month of ElevenLabs Creator, described as the $22 plan.
+- $5 DigitalOcean credits and $50 Render credits.
+- Innovation and open-source use were emphasized; detailed judging weights
+  were not announced. Agent assistance is allowed according to the participant.
 
-If the event centers on existing-project contributions, prioritize a project
-with relevant open issues, an approachable development setup, and responsive
-maintainers. An agreed bug fix, accessibility improvement, documentation update,
-or test improvement could provide a concrete outcome.
+## Remaining event questions
 
-If it allows new-project builds, discuss the target user, problem, and smallest
-useful demonstration after checking time limits and submission requirements.
-A new repository's existence alone should not be treated as evidence of
-Hacktoberfest qualification.
+Confirm any venue changes to the deadline, ElevenLabs-specific entry conditions,
+final submission fields, and rules concerning pre-existing work. The proposed
+new contribution is Sudo Launch; an existing project supplies demonstration
+input. Global Hacktoberfest contribution qualification is separate and remains
+unverified.
 
-If both formats are supported, decide whether the participant's main goal is
-learning, useful upstream contributions, a demo, or an award before narrowing
-the idea. These are planning branches, not claims about this event.
+## Sources
 
-## Pending source material
-
-The event-page description, schedule, registration details, and rules have been
-requested from the participant because the site could not be accessed in this
-session. Record them with their source when supplied.
+- [Event listing](https://www.mlh.com/events/hacktoberfest-hack-day-amaravati-x-foss-srm-ap)
+- [Gemma category](https://www.mlh.com/events/hacktoberfest-hack-day-amaravati-x-foss-srm-ap/challenges/01a03b87-be22-9180-5e2d-b3beeb66666d)
+- [Open-source AI category](https://www.mlh.com/events/hacktoberfest-hack-day-amaravati-x-foss-srm-ap/challenges/01a0d987-0c41-12ea-13ac-5b85755dc2f3)

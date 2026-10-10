@@ -1,0 +1,33 @@
+{
+  "name": "sudo-launch",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n api,web \"npm:dev:api\" \"npm:dev:web\"",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "dev:api": "tsx watch --env-file-if-exists=.env server/index.ts",
+    "dev:web": "vite --host 127.0.0.1",
+    "start": "tsx --env-file-if-exists=.env server/index.ts",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "express": "^5.1.0",
+    "zod": "^3.24.2",
+    "ipaddr.js": "^2.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "~5.7.3",
+    "vite": "^6.1.0",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.0",
+    "concurrently": "^9.1.2",
+    "tsx": "^4.19.3"
+  }
+}
