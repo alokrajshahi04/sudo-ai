@@ -170,11 +170,29 @@ app.get("/api/capabilities", (_req, res) => {
   };
   res.json(capabilities);
 });
+const launchBriefSchema = z
+  .object({
+    audience: z.string().trim().min(3).max(250),
+    goal: z.string().trim().min(3).max(250),
+    context: z.string().trim().max(600).default(""),
+  })
+  .strict();
+function sanitizeBrief(input: z.infer<typeof launchBriefSchema>) {
+  return {
+    audience: redact(input.audience),
+    goal: redact(input.goal),
+    context: redact(input.context),
+  };
+}
+function briefText(input: z.infer<typeof launchBriefSchema>) {
+  return `Audience: ${input.audience}\nLaunch goal: ${input.goal}${input.context ? `\nProduct context: ${input.context}` : ""}`;
+}
 app.post("/api/jobs", (req, res) => {
   const input = z
     .object({
       repository: z.string().max(300),
       brief: z.string().min(3).max(1200),
+      launchBrief: launchBriefSchema.optional(),
       model: z.enum(["google", "nebius", "custom"]).default("google"),
     })
     .strict()
@@ -194,7 +212,12 @@ app.post("/api/jobs", (req, res) => {
     owner: res.locals.owner,
     repository: repo.canonical,
     name: repo.repo,
-    brief: redact(input.brief),
+    brief: input.launchBrief
+      ? briefText(sanitizeBrief(input.launchBrief))
+      : redact(input.brief),
+    launchBrief: input.launchBrief
+      ? sanitizeBrief(input.launchBrief)
+      : undefined,
     modelPreference: input.model,
     selectedAngle: 0,
     createdAt: new Date().toISOString(),
@@ -250,6 +273,17 @@ app.post("/api/jobs/:id/inspect", (req, res) => {
     job.inspection = inspected;
   });
   res.status(202).json(publicJob(job));
+});
+app.post("/api/jobs/:id/brief", (req, res) => {
+  const job = getJob(req.params.id, res.locals.owner);
+  if (busy.has(job.id))
+    throw new AppError(409, "Wait for the current operation.");
+  const input = sanitizeBrief(launchBriefSchema.parse(req.body));
+  const next = briefText(input);
+  if (next !== job.brief) clearGenerated(job);
+  job.launchBrief = input;
+  job.brief = next;
+  res.json(publicJob(job));
 });
 app.post("/api/jobs/:id/research", (req, res) => {
   const job = getJob(req.params.id, res.locals.owner);

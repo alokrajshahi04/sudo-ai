@@ -40,8 +40,10 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173. Start a real launch or use `/demo` for the labeled
-sample. Configure model and optional voice keys in your local `.env` using
+Open http://localhost:5173. Find a project on your public GitHub profile or paste
+a repository. Add an audience and goal, choose a generated launch story, and
+review/download its launch pack. Video is optional; Commands opens keyboard
+shortcuts. Configure model and optional voice keys in your local .env using
 [.env.example](.env.example), then restart the API. No keys are collected in the UI.
 
 `npm run build` builds the frontend and checks TypeScript; `npm test` runs controller

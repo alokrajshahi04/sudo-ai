@@ -71,9 +71,10 @@ source cannot contain a secret.
    Sharing happens manually. Unknown features/launch status remain explicit.
 
 Missing model keys do not block source reading, strategy, or media rendering.
-Missing FFmpeg disables media operations. Sample walkthroughs cover three invented
-project types and never substitute for failed real stages. Jobs are session-owned
-and in memory, not stored in browser localStorage.
+Missing FFmpeg disables media operations. The guided pack requires a generated
+story; the lower-level strategy API can still prepare a checklist without a model.
+The app has no fictional sample workflow. Jobs are session-owned and in memory,
+not stored in browser localStorage.
 
 ## API and ownership
 
@@ -83,6 +84,7 @@ and in memory, not stored in browser localStorage.
 | `POST /api/discover` | Scan bounded public GitHub profile metadata. |
 | `GET/POST /api/jobs` | List owned jobs / create and inspect. |
 | `GET/DELETE /api/jobs/:id` | Read / delete owned idle job and media. |
+| `POST /api/jobs/:id/brief` | Correct structured audience/goal/context; invalidate dependent generated output when changed. |
 | `POST /api/jobs/:id/inspect` | Reinspect immutable source and invalidate stale outcomes. |
 | `POST /api/jobs/:id/research` | Query plus up to three public links. |
 | `POST /api/jobs/:id/position` | Selected model generation, schema-validated. |
@@ -129,5 +131,28 @@ Current verification after the marketing update: production build and 13 automat
 tests passed; real profile discovery returned 23 eligible projects from the
 participant's public account. A real Tolti Next.js repository passed source
 inspection and launch-strategy preparation. Desktop/mobile browser checks passed
-all five tabs with internal content scrolling and persistent navigation/input.
+the previous workspace. The guided flow is verified below.
 No live model/voice success is claimed without credentials.
+
+### Guided workflow verification
+
+The app groups discovery/source/research/positioning/strategy/media into Project
+brief → Launch story → Launch pack. Commands are optional. Required audience and
+goal prevent incomplete discovery prefills from passing as briefs. Owned
+POST /api/jobs/:id/brief accepts audience, goal and optional context;
+it preserves source and clears dependent outputs on a meaningful edit.
+Job creation optionally accepts the same structured launchBrief; the older
+brief input remains supported by the API, but legacy UI jobs require explicit
+audience/goal correction.
+
+One user action sequences optional research then positioning, waiting for actual
+phase completion and stopping on failure. Choosing a story prepares its strategy
+and opens a pack with drafts, Markdown export, receipt and optional media.
+No source/model/voice operation is simulated in production.
+
+Run npm run test:ui after installing Playwright Chromium. Browser fixtures
+exercise multiple profile-to-pack journeys, direct entry, setup states, failures,
+correction/resume, export content and keyboard shortcuts at three viewport sizes.
+Screenshots/traces go to ignored test-results/. Set
+PLAYWRIGHT_CHROMIUM_PATH to use an existing executable.
+Fixture outputs do not prove live model/voice access.

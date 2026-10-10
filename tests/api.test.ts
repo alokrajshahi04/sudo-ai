@@ -98,6 +98,60 @@ test("owned jobs, source provenance, origin checks, real media, and truthful rec
     });
     job = await response.json();
     assert.equal(job.launchStrategy.channels.length, 3);
+    const briefPath = base + "/api/jobs/" + job.id + "/brief";
+    response = await fetch(briefPath, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        audience: "  ",
+        goal: "Find testers",
+        context: "",
+      }),
+    });
+    assert.equal(response.status, 400);
+    response = await fetch(briefPath, {
+      method: "POST",
+      headers: { ...headers, Cookie: "" },
+      body: JSON.stringify({
+        audience: "Students",
+        goal: "Find testers",
+        context: "",
+      }),
+    });
+    assert.equal(response.status, 404);
+    const correctedBrief = {
+      audience: "  Student developers  ",
+      goal: "Find five testers",
+      context: "A working prototype",
+    };
+    response = await fetch(briefPath, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(correctedBrief),
+    });
+    assert.equal(response.status, 200);
+    job = await response.json();
+    assert.equal(job.launchBrief.audience, "Student developers");
+    assert.ok(job.brief.includes("Launch goal: Find five testers"));
+    assert.equal(job.inspection.revision, "a".repeat(40));
+    assert.equal(job.launchStrategy, undefined);
+    response = await fetch(base + "/api/jobs/" + job.id + "/strategy", {
+      method: "POST",
+      headers,
+      body: "{}",
+    });
+    job = await response.json();
+    response = await fetch(briefPath, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(correctedBrief),
+    });
+    job = await response.json();
+    assert.ok(
+      job.launchStrategy,
+      "Saving unchanged brief preserves prepared work",
+    );
+
     assert.equal(
       (
         await fetch(`${base}/api/jobs/${job.id}/plan`, {

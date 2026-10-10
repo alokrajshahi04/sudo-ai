@@ -1,80 +1,106 @@
-# Sudo Launch — product marketing UI/UX
+# Sudo Launch — guided marketing UX
 
-Current direction after mentor feedback, 2026-10-10. Preserve the terminal visual
-language; shift the product from deployment to marketing. Requirements in
-[PRD](prd.md), setup/status in [development](../development.md).
+Current flow, 2026-10-10. The product remains a marketing assistant as described in
+[ideation](ideation.md) and [PRD](prd.md). Terminal styling supports the experience;
+commands are optional shortcuts.
 
-## First visit
+## First visit and project selection
 
-Hero: **Give your project a launch story.** Supporting copy: “Find the audience.
-Explain the value. Create the demo and posts to launch it.” Primary action:
-**Find my projects**. Alternate: **Start with a repository**.
+The home page explains the promise and outputs: audience-specific stories,
+LinkedIn/X drafts, a sharing plan and optional demo assets. Primary action:
+**Find my projects**. Alternative: **Start with a repository**.
 
-About popup gives a short five-step explanation. Discovery modal accepts a public
-GitHub username, shows bounded ranked metadata with reasons, and lets the user
-choose a project. Selection opens the brief form; the user provides audience/goal.
-Source inspection and generation remain explicit actions.
+Discovery scans public GitHub metadata and shows projects with ranking reasons.
+Selecting a project opens a brief form with the repository filled in. Audience
+and launch goal stay empty and are required; the repository description must
+never masquerade as an audience brief. Optional context describes working
+features, prototype limits and useful distinctions.
 
-## Workspace
+Creating a brief reads source but spends no model credits. Public apps, CLI
+tools, libraries and prototypes use the same flow. No fictional walkthrough or
+example-product selector appears in the application.
 
-Tabs: Understand, Position, Launch plan, Demo, Launch pack.
+## Three guided screens
 
-Desktop workspace occupies the available viewport. Header, project identity,
-stage navigation, status line, and command input remain visible. Main content
-and context sidebar scroll internally with contained overscroll. Switching stages
-resets content scroll. At smaller widths, hide the secondary context pane and
-use one internally scrolling content panel. Long evidence/optional existing-URL
-checks use disclosure controls. Do not shrink all text to fit every artifact.
+The six logical activities in ideation are grouped into three user decisions:
 
-Home remains responsive with short-height compact spacing. At mobile/extreme zoom,
-allow natural home scrolling; workspace retains usable stage/command controls.
-Metadata/context stay available in the primary content when needed.
+| Screen | User decision | Operations |
+| --- | --- | --- |
+| Project brief | Who is this for and what should the launch achieve? | Review/edit the audience, goal and optional context; inspect source. |
+| Launch story | Which story should introduce this project? | Optional bounded research, one explicit generation action, two selectable angles with draft previews. |
+| Launch pack | What will I review, download and share? | Prepare the selected-angle launch plan, copy LinkedIn/X drafts, download the Markdown kit, optionally add media, inspect evidence. |
 
-## Interaction and accessibility
+Project brief can be edited without creating another job or repeating inspection.
+Changed briefs invalidate dependent positioning, strategy and generated media.
+Saving unchanged input preserves prepared outputs. The server enforces ownership
+and validation on the brief endpoint.
 
-Slash commands overlay upward; descriptions, arrow-key navigation, visible active
-selection, Enter execution, and Escape close. Commands navigate bounded UI paths;
-no shell or unrestricted agent runs. Every action has a visible button.
+Generation first collects research when enabled, then calls the selected model.
+It waits for each phase to finish, shows progress, and stops on failure. A failed
+research step never silently falls through to a model call. Research settings
+include an editable topic, up to three supplied URLs, and an optional existing
+project link check. These give bounded context, not proof of uniqueness or launch
+history. Missing model configuration has a nearby setup action; no fake drafts.
 
-Current commands: `/discover`, `/new`, `/demo`, `/research`, `/strategy`, `/studio`,
-`/pack`, `/settings`, `/about`, `/clear`, `/help`. `/deploy` is removed.
+After generation, the UI reveals two story choices. Selecting a story updates the
+job; **Use this story & prepare my pack** prepares its launch plan and opens the
+pack. Media is a collapsed optional addition. A text launch does not require
+footage, ElevenLabs or FFmpeg. Missing media prerequisites explain the disabled
+operation. Narration still requires explicit approval and uses the user's quota.
 
-Native labeled dialogs, visible focus, semantic headings, form labels, selected
-states with text/ARIA, polite progress/error announcements, and reduced motion.
-Ensure internally scrolling panes remain keyboard-scrollable and narrow layouts
-have no page-wide overflow. Public release still needs a full accessibility audit.
+The pack offers a Markdown kit with the selected angle, post/narration drafts,
+prepared checklist/channels and cited evidence links/model provenance. Media
+downloads are separate. The JSON receipt records actual source/research/model/
+media use. Copy controls exist for both social drafts. Publishing stays manual.
 
-## Samples and real jobs
+## Navigation, context and keyboard use
 
-Sample walkthrough offers three invented examples: React/Vite app, Python CLI,
-and Next.js server app. Sample metadata/copy are visibly illustrative; sample
-receipt records no source/model/research execution. No PokeChess-specific production
-copy or hard-coded repo assumptions.
+Three progress buttons show the current step and completed inputs. Normal
+navigation prevents jumping into an unprepared pack. Commands may open an
+incomplete screen, which explains the required next action instead of inserting
+placeholder content. Changing projects returns to home with recent owned jobs
+available to resume.
 
-Real projects use their own source snapshots, warnings, research, model metadata,
-selected angles, assets, and receipts. Missing keys/voice/footage show actionable
-states. No deployment/provider selector or fake backend-required deployment button.
-The launch checklist leaves hosting/distribution with the owner.
+Header and progress stay visible. One wide document scrolls; evidence and run
+details expand within it. The overview's primary action fits the short desktop
+and mobile viewports. Step changes reset scroll and focus the content heading.
+No independently scrolling sidebar, forced horizontal tabs or always-visible
+terminal footer.
 
-## Visual system and implementation
+**Commands**, slash, or Ctrl/Cmd+K open the shortcut panel. Arrow keys,
+Enter and Escape operate the palette. /inspect refreshes source, /status
+reports progress; other commands navigate or open bounded forms. No shell,
+deployment or unrestricted agent runs. Navigation never starts paid generation.
 
-Near-black canvas, IBM Plex Mono/system fallback, thin gray borders, rectangular
-panels, restrained red accent, amber caution with text, and a decorative CSS orb.
-Avoid terminal obscurity: visible steps and clear audience/value copy explain the
-product before requiring a command.
+Native labeled dialogs, visible keyboard focus, semantic headings, current-step
+ARIA, pressed story-choice states, inline progress/errors and reduced motion
+support accessible use. A complete accessibility audit remains a public-release
+task.
 
-[App.tsx](../../src/App.tsx): shell/discovery/forms/commands.
-[LiveWorkspace.tsx](../../src/LiveWorkspace.tsx): real marketing stages.
-[SampleWorkspace.tsx](../../src/SampleWorkspace.tsx): multi-category walkthrough.
-[styles.css](../../src/styles.css): viewport/scroll/responsive behavior.
+## Visual system
 
-Browser verification must cover short desktop heights, desktop zoom-equivalent
-viewport, mobile, all stages, long evidence content, persistent footer/nav,
-profile selection, direct repo entry, and honest sample versus real status.
+Near-black canvas, mono typography, restrained red primary actions, thin neutral
+borders, readable form labels and muted supporting copy. Prefer direct decisions
+and practical outputs over oversized slogans or repeated dashboard cards.
+Dark scrollbars and controls remain readable on Windows and narrow screens.
 
+Implementation: [App](../../src/App.tsx) owns onboarding, resume, navigation and
+shortcuts; [LiveWorkspace](../../src/LiveWorkspace.tsx) owns the guided flow and
+actual operation handlers; [styles](../../src/styles.css) defines layout.
 
-Current browser checks passed home at 1536×696, 1280×720, 1440×900, and 1024×768;
-workspace stage switching and long-content scrolling at 1536×696 and 390×844;
-actual public profile discovery/selection; direct Tolti repo entry; and real
-launch-strategy preparation. Navigation and command input remained visible,
-with no outer workspace page overflow or JavaScript runtime errors.
+## Verification
+
+Playwright follows two generic repository types from profile selection to kit
+download without commands. It checks missing model setup, research error/retry,
+legacy incomplete briefs, resume, optional media, selected-angle export content,
+keyboard shortcuts and workspace geometry at desktop, short desktop and mobile
+sizes. Screenshots are inspected, including brief, story and pack states.
+
+Run npm run test:ui after installing Playwright Chromium.
+PLAYWRIGHT_CHROMIUM_PATH optionally selects an existing browser.
+Screenshots/traces go to ignored test-results/.
+
+Browser model/research outputs are controlled fixtures. They verify UX and API
+sequencing, not live provider account access or marketing quality. Node integration
+tests separately exercise real endpoints, ownership, brief correction, source
+fixtures and invalidation. Live model/voice and Agent-Reach remain separate work.

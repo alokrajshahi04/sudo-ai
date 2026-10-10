@@ -78,11 +78,16 @@ Terminal-inspired, with visible actions and a first-visit explanation:
 “Start with a repository.” The About popup explains the workflow without filling
 the landing page. Slash commands overlay upward with descriptions and keyboard use.
 
-Workspace navigation and command input remain visible. Desktop stage content
-and context panes scroll internally; mobile keeps one content pane and hides the
-secondary context. Lengthy source excerpts and optional live-link checks are
-collapsed. Sample walkthroughs cover three project types and are explicitly
-illustrative; no PokeChess-specific assumptions occur in production behavior.
+The six logical activities are grouped into three guided screens: Project brief,
+Launch story, and Launch pack. Audience and goal are required; a repository
+description never counts as a completed audience brief. Research feeds an explicit
+two-story generation action, and the selected story leads to a pack containing
+posts and a sharing plan. Demo footage/voiceover is an optional pack addition.
+
+Progress stays visible while one document scrolls. Source evidence and local run
+details expand inside it. Commands open on request as keyboard shortcuts, rather
+than occupying a permanent footer. No fictional examples enter a real project flow.
+See [UI/UX](ui-ux.md) for the interaction contract.
 
 ## Evidence, risks, and differentiation
 
@@ -107,8 +112,9 @@ change the project profile, or publish. The human owns the final marketing claim
 
 PokeChess can remain one real example; it is not a product constraint or the only
 test input. Fixture-backed integration tests cover React/Vite, Next.js, Python CLI,
-README-first prototype, workspace, and library projects. The walkthrough offers
-app/CLI/server examples. Demonstrate a mentor's public repo by entering its URL
+README-first prototype, workspace, and library projects. Browser fixtures cover
+profile-to-pack flows for multiple generic repositories. Demonstrate a mentor's
+public repo by entering its URL
 or profile, providing an audience brief, and running the same pipeline.
 
 Show the source/evidence limits and actual model metadata. A CLI demo is real

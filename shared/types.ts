@@ -85,11 +85,17 @@ export interface ProfileDiscovery {
   checkedAt: string;
   coverage: string;
 }
+export interface LaunchBrief {
+  audience: string;
+  goal: string;
+  context: string;
+}
 export interface Job {
   id: string;
   repository: string;
   name: string;
   brief: string;
+  launchBrief?: LaunchBrief;
   createdAt: string;
   expiresAt: string;
   phases: Record<Phase, { state: State; error?: string }>;

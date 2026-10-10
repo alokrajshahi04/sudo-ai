@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import LiveWorkspace, { type Stage } from "./LiveWorkspace";
-import SampleWorkspace from "./SampleWorkspace";
 import { api, getCapabilities, getJob } from "./api";
 import type {
   Job,
@@ -11,19 +10,20 @@ import type {
 } from "../shared/types";
 type Panel = "new" | "discover" | "settings" | "help" | "about" | null;
 const stages: { id: Stage; number: string; label: string }[] = [
-  { id: "overview", number: "01", label: "Understand" },
-  { id: "research", number: "02", label: "Position" },
-  { id: "strategy", number: "03", label: "Launch plan" },
-  { id: "studio", number: "04", label: "Demo" },
-  { id: "pack", number: "05", label: "Launch pack" },
+  { id: "overview", number: "01", label: "Project brief" },
+  { id: "research", number: "02", label: "Launch story" },
+  { id: "pack", number: "03", label: "Launch pack" },
 ];
 const commands = [
   ["/discover", "Find projects on a GitHub profile"],
   ["/new", "Start with a public repository"],
-  ["/demo", "Explore three example project types"],
+  ["/inspect", "Refresh public source evidence"],
+  ["/status", "Show current job progress"],
+  ["/next", "Continue to the next step"],
+  ["/back", "Return to the previous step"],
   ["/research", "Research and audience positioning"],
   ["/strategy", "Plan a marketing launch"],
-  ["/studio", "Recording and narration"],
+  ["/studio", "Open optional recording and narration in your pack"],
   ["/pack", "Download your launch assets"],
   ["/settings", "Choose your model"],
   ["/about", "What Sudo Launch does"],
@@ -43,8 +43,7 @@ function Orb() {
   );
 }
 export default function App() {
-  const [sample, setSample] = useState(false),
-    [job, setJob] = useState<Job | null>(null),
+  const [job, setJob] = useState<Job | null>(null),
     [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [stage, setStage] = useState<Stage>("overview"),
     [panel, setPanel] = useState<Panel>(null),
@@ -52,12 +51,16 @@ export default function App() {
     [notice, setNotice] = useState("");
   const [model, setModel] = useState<ModelProvider>("google"),
     [repo, setRepo] = useState(""),
-    [brief, setBrief] = useState(""),
+    [audience, setAudience] = useState(""),
+    [launchGoal, setLaunchGoal] = useState(""),
+    [context, setContext] = useState(""),
     [formError, setFormError] = useState(""),
     [creating, setCreating] = useState(false);
   const [username, setUsername] = useState(""),
     [discovery, setDiscovery] = useState<ProfileDiscovery | null>(null),
     [discovering, setDiscovering] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [savedJobs, setSavedJobs] = useState<Job[]>([]);
   const [paletteOpen, setPaletteOpen] = useState(false),
     [activeCommand, setActiveCommand] = useState(0);
   const matching = commands.filter(([c]) => c.startsWith(command));
@@ -65,7 +68,25 @@ export default function App() {
     dialogRef = useRef<HTMLDialogElement>(null),
     previousFocus = useRef<HTMLElement | null>(null),
     stageRef = useRef<HTMLElement | null>(null);
-  const workspace = !!(job || sample);
+  const workspace = !!job;
+  const currentStep: Stage =
+    stage === "strategy" || stage === "studio" ? "pack" : stage;
+  function updateJob(next: Job) {
+    setJob(next);
+    setSavedJobs((previous) => [
+      ...previous.filter((j) => j.id !== next.id),
+      next,
+    ]);
+  }
+  function showCommands() {
+    setCommandOpen(true);
+    setCommand("/");
+    setPaletteOpen(true);
+    setActiveCommand(0);
+  }
+  useEffect(() => {
+    if (commandOpen) commandRef.current?.focus();
+  }, [commandOpen]);
   useEffect(() => {
     let alive = true;
     getCapabilities()
@@ -74,7 +95,17 @@ export default function App() {
         return api<Job[]>("/jobs");
       })
       .then((j) => {
-        if (alive && j.length) setJob(j[j.length - 1]);
+        if (alive) {
+          setSavedJobs(j);
+          if (j.length) {
+            const latest = j[j.length - 1];
+            setJob(latest);
+            setModel(latest.modelPreference);
+            setStage(
+              latest.positioning && latest.launchStrategy ? "pack" : "overview",
+            );
+          }
+        }
       })
       .catch(() => {
         if (alive)
@@ -92,7 +123,7 @@ export default function App() {
     const id = setInterval(
       () =>
         getJob(job.id)
-          .then(setJob)
+          .then(updateJob)
           .catch((e) => {
             setNotice(e.message);
             setJob(null);
@@ -119,20 +150,24 @@ export default function App() {
   }, [activeCommand, paletteOpen, command]);
   useEffect(() => {
     stageRef.current?.querySelector(".stage-content")?.scrollTo({ top: 0 });
+    const heading =
+      stageRef.current?.querySelector<HTMLElement>(".flow-heading h2");
+    if (heading) {
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+    }
   }, [stage, job?.id]);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       if (
-        e.key === "/" &&
-        !["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) &&
-        !panel
+        !panel &&
+        (((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") ||
+          (e.key === "/" &&
+            !["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)))
       ) {
         e.preventDefault();
-        commandRef.current?.focus();
-        setCommand("/");
-        setActiveCommand(0);
-        setPaletteOpen(true);
+        showCommands();
       }
     };
     window.addEventListener("keydown", handler);
@@ -142,40 +177,73 @@ export default function App() {
     setFormError("");
     setPanel(p);
   }
-  function demo() {
-    setJob(null);
-    setSample(true);
-    setStage("overview");
-    setPanel(null);
-    setNotice(
-      "Illustrative walkthrough. Try an app, CLI, or server project example.",
-    );
-  }
   function home() {
     setJob(null);
-    setSample(false);
-    setNotice("Local jobs remain available until expiry.");
+    setNotice("");
   }
   function run(value: string) {
     const c = value.trim().toLowerCase();
     setCommand("");
     setPaletteOpen(false);
+    setCommandOpen(false);
     setActiveCommand(0);
-    if (c === "/demo") return demo();
+    if (c === "/next" || c === "/back") {
+      if (!workspace) return open("new");
+      const index = stages.findIndex((s) => s.id === currentStep);
+      const target =
+        stages[
+          Math.max(
+            0,
+            Math.min(stages.length - 1, index + (c === "/next" ? 1 : -1)),
+          )
+        ].id;
+      if (target === "research" && !job?.launchBrief) {
+        setNotice("Add your audience and launch goal before continuing.");
+        return;
+      }
+      if (target === "pack" && !job?.positioning) {
+        setNotice("Generate and choose a launch story first.");
+        return;
+      }
+      setStage(target);
+      return;
+    }
+    if (c === "/status") {
+      setNotice(
+        job
+          ? Object.entries(job.phases)
+              .map(([name, phase]) => `${name}: ${phase.state}`)
+              .join(" · ")
+          : "No active job. Start with /discover or /new.",
+      );
+      return;
+    }
+    if (c === "/inspect") {
+      if (!job) return open("new");
+      if (Object.values(job.phases).some((p) => p.state === "running")) {
+        setNotice("An operation is already running. Wait for it to finish.");
+        return;
+      }
+      setStage("overview");
+      void api<Job>(`/jobs/${job.id}/inspect`, {})
+        .then(updateJob)
+        .catch((e) => setNotice(e.message));
+      return;
+    }
     if (c === "/clear") return home();
     if (["/new", "/discover", "/settings", "/about", "/help"].includes(c))
       return open(c.slice(1) as Panel);
     const target = (
       {
         "/research": "research",
-        "/strategy": "strategy",
+        "/strategy": "pack",
         "/studio": "studio",
         "/pack": "pack",
       } as Record<string, Stage>
     )[c];
     if (target) {
       if (workspace) setStage(target);
-      else setNotice("Start with /discover or /new, or explore /demo.");
+      else setNotice("Start with /discover or /new, to begin.");
       return;
     }
     setNotice("Use /help to see available commands.");
@@ -184,13 +252,26 @@ export default function App() {
     setCreating(true);
     setFormError("");
     try {
-      const next = await api<Job>("/jobs", { repository: repo, brief, model });
-      setJob(next);
-      setSample(false);
+      const launchBrief = {
+        audience: audience.trim(),
+        goal: launchGoal.trim(),
+        context: context.trim(),
+      };
+      const next = await api<Job>("/jobs", {
+        repository: repo,
+        brief:
+          "Audience: " +
+          launchBrief.audience +
+          "\nLaunch goal: " +
+          launchBrief.goal,
+        launchBrief,
+        model,
+      });
+      updateJob(next);
       setStage("overview");
       setPanel(null);
       setNotice(
-        "Reading public source at a recorded commit. Marketing claims remain subject to review.",
+        "Reading your project. Review the audience and launch goal while it loads.",
       );
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "Could not start launch.");
@@ -215,11 +296,9 @@ export default function App() {
   }
   function chooseProject(project: ProjectCandidate) {
     setRepo(project.repository);
-    setBrief(
-      project.description
-        ? `Product context: ${project.description}\nAudience and launch goal: `
-        : "",
-    );
+    setAudience("");
+    setLaunchGoal("");
+    setContext("");
     open("new");
   }
   return (
@@ -232,13 +311,7 @@ export default function App() {
         <div className="header-right">
           <span className="preview-badge">
             <i />
-            {job
-              ? "Local job"
-              : sample
-                ? "Sample"
-                : capabilities
-                  ? "Local mode"
-                  : "UI preview"}
+            {job ? "Local job" : capabilities ? "Local mode" : "UI preview"}
           </span>
           <a
             href="https://github.com/alokrajshahi04/sudo-ai"
@@ -247,6 +320,9 @@ export default function App() {
           >
             Source ↗
           </a>
+          <button className="commands-toggle" onClick={showCommands}>
+            Commands <kbd>/</kbd>
+          </button>
           <button className="settings-button" onClick={() => open("settings")}>
             Settings <span aria-hidden="true">⚙</span>
           </button>
@@ -301,8 +377,8 @@ export default function App() {
                     Turn its source and your brief into a clear story.
                   </p>
                   <div className="code-line">
-                    <span className="red">&gt;</span> /discover
-                    your-github-username
+                    <span className="red">&gt;</span> public profile → your
+                    shortlist
                   </div>
                   <span className="footnote">
                     Web apps, CLI tools, libraries, and prototypes.
@@ -332,75 +408,82 @@ export default function App() {
                 </section>
               </div>
             </section>
-            <div className="principles">
-              <span>YOUR PROJECT.</span>
-              <span>YOUR AUDIENCE.</span>
-              <span>YOUR MODELS.</span>
-              <span className="dim">YOUR LAUNCH.</span>
+            <div className="home-journey" aria-label="How it works">
+              <span>01 · Pick a project</span>
+              <span>02 · Choose a launch story</span>
+              <span>03 · Review & download your pack</span>
             </div>
-            <section className="workflow-strip" aria-label="Marketing workflow">
-              {stages.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => {
-                    demo();
-                    setStage(s.id);
-                  }}
-                >
-                  <span className="dim">{s.number}</span>
-                  <span>{s.label}</span>
-                  <span className="step-arrow">→</span>
-                </button>
-              ))}
-            </section>
+            {!!savedJobs.length && (
+              <section className="resume-projects">
+                <span className="micro">RECENT LAUNCHES / THIS SESSION</span>
+                {savedJobs.map((saved) => (
+                  <button
+                    key={saved.id}
+                    onClick={() => {
+                      setJob(saved);
+                      setModel(saved.modelPreference);
+                      setStage(
+                        saved.positioning && saved.launchStrategy
+                          ? "pack"
+                          : "overview",
+                      );
+                    }}
+                  >
+                    <strong>{saved.name}</strong>
+                    <span>
+                      {saved.positioning
+                        ? "Continue your launch"
+                        : "Continue your brief"}{" "}
+                      →
+                    </span>
+                  </button>
+                ))}
+              </section>
+            )}
           </>
         ) : (
           <>
             <section className="workspace-heading">
-              <div>
-                <span className="micro">
-                  {job
-                    ? `PROJECT / ${job.name.toUpperCase()}`
-                    : "WORKFLOW / THREE PROJECT TYPES"}
-                </span>
-                <h1>
-                  {job ? job.name : "A project. An audience. A launch."}
-                  <span className="red">.</span>
-                </h1>
-                {job ? (
+              <div className="project-identity">
+                <span className="micro">YOUR PROJECT</span>
+                <h1>{job?.name}</h1>
+                {job && (
                   <a
                     className="repo-link"
                     href={job.repository}
                     target="_blank"
                     rel="noreferrer"
                   >
-                    {job.repository.replace("https://github.com/", "")} ↗
+                    GitHub ↗
                   </a>
-                ) : (
-                  <span className="repo-link">
-                    Explore an app, a CLI tool, or a server project.
-                  </span>
                 )}
               </div>
-              <span className="sample-tag">
-                {job ? "REAL SOURCE / LOCAL" : "ILLUSTRATIVE SAMPLE"}
-              </span>
+              <button className="outline" onClick={home}>
+                Change project
+              </button>
             </section>
-            <div className="sample-warning">
-              {job
-                ? "Source evidence informs marketing. Review claims; code and issues are not executed."
-                : "Illustrative examples only. No source, model, research, or publishing operation ran."}
-            </div>
-            <nav className="stage-nav" aria-label="Marketing stages">
-              {stages.map((s) => (
+            <nav className="guided-steps" aria-label="Launch progress">
+              {stages.map((step, index) => (
                 <button
-                  key={s.id}
-                  aria-current={stage === s.id ? "step" : undefined}
-                  className={stage === s.id ? "active" : ""}
-                  onClick={() => setStage(s.id)}
+                  key={step.id}
+                  aria-current={currentStep === step.id ? "step" : undefined}
+                  disabled={
+                    (step.id === "research" && !job?.launchBrief) ||
+                    (step.id === "pack" && !job?.positioning)
+                  }
+                  onClick={() => setStage(step.id)}
                 >
-                  <span>{s.number}</span>
-                  {s.label}
+                  <span className="step-number">{index + 1}</span>
+                  <span>{step.label}</span>
+                  <span className="step-state">
+                    {step.id === "overview" &&
+                    job?.launchBrief &&
+                    job.inspection
+                      ? "✓"
+                      : step.id === "research" && job?.positioning
+                        ? "✓"
+                        : ""}
+                  </span>
                 </button>
               ))}
             </nav>
@@ -411,128 +494,146 @@ export default function App() {
             >
               {job ? (
                 <LiveWorkspace
+                  key={job.id}
                   job={job}
                   stage={stage}
                   capabilities={capabilities}
                   model={model}
-                  onJob={setJob}
+                  onJob={updateJob}
                   onDeleted={() => {
+                    setSavedJobs((previous) =>
+                      previous.filter((j) => j.id !== job.id),
+                    );
                     setJob(null);
                     setNotice("Local job and artifacts deleted.");
                   }}
                   onNotice={setNotice}
+                  onStage={setStage}
                   onSettings={() => open("settings")}
                 />
-              ) : (
-                <SampleWorkspace stage={stage} onStart={() => open("new")} />
-              )}
+              ) : null}
             </section>
           </>
         )}
         <div className="notice" role="status" aria-live="polite">
-          {notice ||
-            "Discover → understand → position → prepare your launch pack. Review before publishing."}
+          {notice}
         </div>
       </main>
-      <footer className="command-footer">
-        {paletteOpen && command.startsWith("/") && matching.length > 0 && (
-          <div
-            id="command-menu"
-            className="command-suggestions"
-            role="listbox"
-            aria-label="Available commands"
-          >
-            {matching.map(([c, description], i) => (
-              <button
-                id={`command-option-${i}`}
-                key={c}
-                role="option"
-                aria-selected={activeCommand === i}
-                className={activeCommand === i ? "active" : ""}
-                onMouseDown={(e) => e.preventDefault()}
-                onMouseEnter={() => setActiveCommand(i)}
-                onClick={() => run(c)}
-              >
-                <strong>{c}</strong>
-                <span>{description}</span>
-              </button>
-            ))}
-          </div>
-        )}
-        <form
-          className="command-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            run(
-              paletteOpen && command.startsWith("/") && matching.length
-                ? matching[activeCommand]?.[0] || command
-                : command,
-            );
-          }}
+      {commandOpen && (
+        <footer
+          className="command-footer command-popup"
+          aria-label="Command shortcuts"
         >
-          <label htmlFor="command" className="prompt-sign">
-            &gt;
-          </label>
-          <input
-            id="command"
-            ref={commandRef}
-            value={command}
-            role="combobox"
-            aria-label="Launch command"
-            aria-autocomplete="list"
-            aria-controls="command-menu"
-            aria-expanded={
-              paletteOpen && command.startsWith("/") && matching.length > 0
-            }
-            aria-activedescendant={
-              paletteOpen && matching.length
-                ? `command-option-${activeCommand}`
-                : undefined
-            }
-            onChange={(e) => {
-              setCommand(e.target.value);
-              setActiveCommand(0);
-              setPaletteOpen(true);
+          <div className="command-popup-heading">
+            <span className="micro">
+              SHORTCUTS / USE THE GUIDED FLOW OR A COMMAND
+            </span>
+            <button
+              aria-label="Close commands"
+              onClick={() => setCommandOpen(false)}
+            >
+              ×
+            </button>
+          </div>
+          {paletteOpen && command.startsWith("/") && matching.length > 0 && (
+            <div
+              id="command-menu"
+              className="command-suggestions"
+              role="listbox"
+              aria-label="Available commands"
+            >
+              {matching.map(([c, description], i) => (
+                <button
+                  id={`command-option-${i}`}
+                  key={c}
+                  role="option"
+                  aria-selected={activeCommand === i}
+                  className={activeCommand === i ? "active" : ""}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setActiveCommand(i)}
+                  onClick={() => run(c)}
+                >
+                  <strong>{c}</strong>
+                  <span>{description}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <form
+            className="command-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              run(
+                paletteOpen && command.startsWith("/") && matching.length
+                  ? matching[activeCommand]?.[0] || command
+                  : command,
+              );
             }}
-            onFocus={() => setPaletteOpen(true)}
-            onBlur={() => setPaletteOpen(false)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                setPaletteOpen(false);
-                e.preventDefault();
-              } else if (
-                command.startsWith("/") &&
-                matching.length &&
-                ["ArrowDown", "ArrowUp"].includes(e.key)
-              ) {
-                e.preventDefault();
-                setPaletteOpen(true);
-                setActiveCommand(
-                  (i) =>
-                    (i + (e.key === "ArrowDown" ? 1 : -1) + matching.length) %
-                    matching.length,
-                );
+          >
+            <label htmlFor="command" className="prompt-sign">
+              &gt;
+            </label>
+            <input
+              id="command"
+              ref={commandRef}
+              value={command}
+              role="combobox"
+              aria-label="Launch command"
+              aria-autocomplete="list"
+              aria-controls="command-menu"
+              aria-expanded={
+                paletteOpen && command.startsWith("/") && matching.length > 0
               }
-            }}
-            placeholder="Type / for commands"
-            autoComplete="off"
-            spellCheck={false}
-          />
-          <span className="keyboard-hint">/ to focus</span>
-          <button className="primary" type="submit">
-            Run ↵
+              aria-activedescendant={
+                paletteOpen && matching.length
+                  ? `command-option-${activeCommand}`
+                  : undefined
+              }
+              onChange={(e) => {
+                setCommand(e.target.value);
+                setActiveCommand(0);
+                setPaletteOpen(true);
+              }}
+              onFocus={() => setPaletteOpen(true)}
+              onBlur={() => setPaletteOpen(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setPaletteOpen(false);
+                  setCommandOpen(false);
+                  e.preventDefault();
+                } else if (
+                  command.startsWith("/") &&
+                  matching.length &&
+                  ["ArrowDown", "ArrowUp"].includes(e.key)
+                ) {
+                  e.preventDefault();
+                  setPaletteOpen(true);
+                  setActiveCommand(
+                    (i) =>
+                      (i + (e.key === "ArrowDown" ? 1 : -1) + matching.length) %
+                      matching.length,
+                  );
+                }
+              }}
+              placeholder="Type / for commands"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <span className="keyboard-hint">/ to focus</span>
+            <button className="primary" type="submit">
+              Go ↵
+            </button>
+          </form>
+        </footer>
+      )}
+      {!workspace && (
+        <footer className="home-footer">
+          <span>Open source. Your models. Your launch.</span>
+          <button onClick={() => open("about")}>
+            What does Sudo Launch do? ↗
           </button>
-        </form>
-        <div className="quick-access">
-          <span>Quick access</span>
-          <button onClick={() => open("discover")}>discover</button>
-          <button onClick={() => open("new")}>new launch</button>
-          <button onClick={demo}>sample</button>
-          <button onClick={() => open("about")}>about</button>
-          <button onClick={() => open("help")}>help</button>
-          <span className="footer-note">Make what you built understood.</span>
-        </div>
-      </footer>
+        </footer>
+      )}
       <dialog
         ref={dialogRef}
         aria-label={
@@ -636,10 +737,10 @@ export default function App() {
               void startLaunch();
             }}
           >
-            <h2>What did you build? Who needs it?</h2>
+            <h2>Let’s prepare your project’s launch.</h2>
             <p>
-              Any public repository can enter this workflow. Source coverage and
-              uncertain claims stay visible.
+              Pick a public repository and tell us who you want to reach. We’ll
+              read the source before generating anything.
             </p>
             <label htmlFor="repo">Public GitHub repository</label>
             <input
@@ -651,27 +752,44 @@ export default function App() {
               placeholder="https://github.com/you/project"
               onChange={(e) => setRepo(e.target.value)}
             />
-            <label htmlFor="brief">Audience and launch goal</label>
-            <textarea
-              id="brief"
+            <label htmlFor="audience">Who is it for?</label>
+            <input
+              id="audience"
               required
               minLength={3}
-              maxLength={1200}
-              value={brief}
-              placeholder="Who is this for, what does it do, and what do you want the launch to achieve?"
-              onChange={(e) => setBrief(e.target.value)}
+              maxLength={250}
+              value={audience}
+              placeholder="e.g. student developers learning Solana"
+              onChange={(e) => setAudience(e.target.value)}
             />
-            <div className="dialog-info">
-              No code runs. No deployment credentials are needed. This reads
-              public source and prepares marketing.
-            </div>
+            <label htmlFor="launch-goal">
+              What should this launch achieve?
+            </label>
+            <input
+              id="launch-goal"
+              required
+              minLength={3}
+              maxLength={250}
+              value={launchGoal}
+              placeholder="e.g. find five testers and collect feedback"
+              onChange={(e) => setLaunchGoal(e.target.value)}
+            />
+            <label htmlFor="project-context">
+              Anything else? <span className="dim">Optional</span>
+            </label>
+            <textarea
+              id="project-context"
+              maxLength={600}
+              value={context}
+              placeholder="What works today and what is still a prototype."
+              onChange={(e) => setContext(e.target.value)}
+            />
             <button className="primary" disabled={creating || !capabilities}>
-              {creating
-                ? "Starting source inspection…"
-                : "Understand this project →"}
+              {creating ? "Reading your project…" : "Create project brief →"}
             </button>
             <p className="footnote">
-              Local job lasts one hour; restarting the backend clears it.
+              No model credits used yet. Local work expires after one hour or a
+              server restart.
             </p>
           </form>
         )}
@@ -688,11 +806,20 @@ export default function App() {
               value={model}
               onChange={(e) => setModel(e.target.value as ModelProvider)}
             >
-              <option value="google">Gemma 4 · Google AI Studio</option>
-              <option value="nebius">GLM-5.3-Flash · Nebius</option>
-              <option value="custom">
-                Other OpenAI-compatible · local setup
-              </option>
+              {(["google", "nebius", "custom"] as ModelProvider[]).map(
+                (provider) => (
+                  <option key={provider} value={provider}>
+                    {provider === "google"
+                      ? "Google AI Studio"
+                      : provider === "nebius"
+                        ? "Nebius"
+                        : "OpenAI-compatible"}{" "}
+                    ·{" "}
+                    {capabilities?.models.find((m) => m.provider === provider)
+                      ?.model || "Model not set"}
+                  </option>
+                ),
+              )}
             </select>
             <div className="dialog-info">
               Configure keys in your local .env and restart the API. Never paste
@@ -713,8 +840,29 @@ export default function App() {
                 <strong>Bounded GitHub + supplied links</strong>
               </div>
             </div>
+            <p className="footnote">
+              This local app reads credentials from the server’s .env. See the{" "}
+              <a
+                href="https://github.com/alokrajshahi04/sudo-ai/blob/main/docs/development.md"
+                target="_blank"
+                rel="noreferrer"
+              >
+                setup guide ↗
+              </a>{" "}
+              for provider configuration.
+            </p>
+            <button
+              className="outline"
+              onClick={() => {
+                void getCapabilities()
+                  .then(setCapabilities)
+                  .catch((e) => setFormError(e.message));
+              }}
+            >
+              Refresh connection status
+            </button>
             <button className="primary" onClick={() => setPanel(null)}>
-              Use this preference →
+              Use this model →
             </button>
           </>
         )}
@@ -750,7 +898,10 @@ export default function App() {
         {panel === "help" && (
           <>
             <h2>A command bar, not a guessing game.</h2>
-            <p>Use ↑ / ↓ and Enter. Every command also has a visible button.</p>
+            <p>
+              Use ↑ / ↓ and Enter. Commands open steps or run the action
+              described below.
+            </p>
             <div className="help-list">
               {commands.map(([c, d]) => (
                 <button

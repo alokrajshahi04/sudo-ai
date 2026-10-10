@@ -16,7 +16,9 @@ outcomes.
 
 ## Scope and boundaries
 
-Discover → Understand → Position → Launch plan → Demo → Launch pack.
+Logical workflow: Discover → Understand → Position → Launch plan → optional Demo → Launch pack.
+Guided UI: Project brief → Launch story → Launch pack. Research feeds the story
+step; strategy and optional media belong in the pack.
 
 Any public root repo can enter, including apps, Python tools, libraries, workspaces,
 documentation, and prototypes. Bounded inspection can be incomplete; describe
@@ -33,6 +35,7 @@ product's own Node API handles source/model/voice operations. CLI/MCP is later.
 | --- | --- |
 | Profile discovery | Valid username returns bounded public metadata, exclusions, ranking reasons, and scope. User can select a repo and supply audience/goal. |
 | Repository entry | Direct public URL works independently of profile discovery or a specific owner's account. |
+| Owner brief | Required audience/goal, optional context; repository metadata does not satisfy these inputs. Owned brief edits preserve source and invalidate dependent generated outputs only when changed. |
 | Source understanding | Commit-pinned README/manifests/entry files, typed evidence, no install/build execution. Missing deployment setup does not block marketing. |
 | Category coverage | Fixture-backed API runs accept Vite, Next.js, Python CLI, library, README-first prototype, and workspace. Unknown profile remains visible. |
 | Positioning | Selected model returns two schema-valid angles, each with its own audience, rationale, evidence IDs, posts, and narration. Unknown evidence/action fields are rejected. |
@@ -40,7 +43,7 @@ product's own Node API handles source/model/voice operations. CLI/MCP is later.
 | Launch strategy | Audience/angle informs reviewed channel purposes, sharing timing, and a release checklist. Publishing remains developer-owned. |
 | Demo assets | Owner uploads real usage recording; FFprobe validates; optional approved ElevenLabs narration; fixed capped FFmpeg output. User-footage provenance remains explicit. |
 | Pack | Selected-angle drafts, generated assets, and actual-execution receipt downloadable. Model preference is distinct from actual use. |
-| Workspace | Stage navigation/command input stay visible while stage content scrolls internally; desktop/mobile/zoom checks pass. |
+| Workspace | Three guided steps, one document scroll area, visible next actions, optional command panel; desktop/mobile/zoom checks pass. |
 | Secrets/ownership | No browser keys; owned jobs/assets; Origin checks; bounded public URL access; no secrets in prompts/exports. Hosted release needs additional security gates. |
 
 ## Input and output
