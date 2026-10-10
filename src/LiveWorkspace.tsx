@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Job, Capabilities, ModelProvider } from "../shared/types";
+import Readiness from "./Readiness";
 import { api, getJob } from "./api";
 export type Stage = "overview" | "research" | "strategy" | "studio" | "pack";
 export default function LiveWorkspace({
@@ -23,17 +24,25 @@ export default function LiveWorkspace({
   onSettings: () => void;
   onStage: (stage: Stage) => void;
 }) {
+  const editedBrief = useRef(false);
   const [audience, setAudience] = useState(job.launchBrief?.audience || "");
   const [goal, setGoal] = useState(job.launchBrief?.goal || "");
   const [context, setContext] = useState(
     job.launchBrief?.context ||
       (job.launchBrief
         ? ""
-        : job.brief
+        : (job.brief || "")
             .replace(/Audience and launch goal:\s*$/i, "")
             .replace(/^Product context:\s*/i, "")
             .trim()),
   );
+  useEffect(() => {
+    if (job.analysis && !job.launchBrief && !editedBrief.current) {
+      setAudience(job.analysis.suggestedBrief.audience);
+      setGoal(job.analysis.suggestedBrief.goal);
+      setContext(job.analysis.suggestedBrief.context);
+    }
+  }, [job.analysis?.generatedAt]);
   const [error, setError] = useState("");
   const [dismissedFailure, setDismissedFailure] = useState("");
   const phaseFailure = Object.entries(job.phases)
@@ -46,7 +55,10 @@ export default function LiveWorkspace({
   const displayedError =
     error || (phaseFailure !== dismissedFailure ? phaseFailure : "");
   const [progress, setProgress] = useState("");
-  const [includeResearch, setIncludeResearch] = useState(true);
+  const [includeResearch, setIncludeResearch] = useState(!job.privateConsent);
+  useEffect(() => {
+    if (job.inspection?.private) setIncludeResearch(false);
+  }, [job.inspection?.private]);
   const mounted = useRef(true);
   const mediaRef = useRef<HTMLDetailsElement>(null);
   const storiesRef = useRef<HTMLDivElement>(null);
@@ -71,6 +83,12 @@ export default function LiveWorkspace({
   const [narration, setNarration] = useState("");
   const [approved, setApproved] = useState(false);
   const [useVoice, setUseVoice] = useState(false);
+  const [useMusic, setUseMusic] = useState(false);
+  const [useRecording, setUseRecording] = useState(false);
+  const [musicPrompt, setMusicPrompt] = useState(
+    "Minimal electronic instrumental for a developer project launch. Warm synth pulse, restrained percussion, optimistic build, clean ending. No vocals.",
+  );
+  const [musicApproved, setMusicApproved] = useState(false);
   const [uploading, setUploading] = useState(false);
   const running =
     Object.values(job.phases).some((p) => p.state === "running") ||
@@ -240,7 +258,7 @@ export default function LiveWorkspace({
   async function copy(text: string, label: string) {
     try {
       await navigator.clipboard.writeText(text);
-      onNotice(label + " draft copied. Review before posting.");
+      onNotice(label + " copied. Review before using.");
     } catch {
       setError(
         "Clipboard access is unavailable. Select the draft text to copy it manually.",
@@ -277,6 +295,7 @@ export default function LiveWorkspace({
   }
   const video = job.artifacts.find((a) => a.type === "video");
   const audio = job.artifacts.find((a) => a.type === "narration");
+  const music = job.artifacts.find((a) => a.type === "music");
   const recording = job.artifacts.find((a) => a.type === "recording");
   return (
     <section className="workspace-grid">
@@ -304,30 +323,69 @@ export default function LiveWorkspace({
         {running && (
           <div className="flow-progress" role="status">
             <i />
-            {progress ||
+            {job.progressStep ||
+              progress ||
               Object.entries(job.phases)
                 .filter(([, p]) => p.state === "running")
                 .map(([name]) =>
                   name === "inspect"
                     ? "Reading your repository…"
-                    : name === "position"
-                      ? "Writing two launch stories…"
-                      : "Collecting research…",
+                    : name === "analyze"
+                      ? "Suggesting your product brief…"
+                      : name === "render"
+                        ? "Composing your video…"
+                        : name === "music"
+                          ? "Generating the music bed…"
+                          : name === "narrate"
+                            ? "Generating narration…"
+                            : name === "position"
+                              ? "Writing two launch stories…"
+                              : "Collecting research…",
                 )
                 .join(" ") ||
               "Updating your launch…"}
+            <span className="progress-sweep" aria-hidden="true" />
           </div>
         )}
         {stage === "overview" && (
           <>
             <header className="flow-heading">
               <span className="micro">STEP 1 / PROJECT BRIEF</span>
-              <h2>Who are we launching this for?</h2>
+              <h2>Let’s understand your project.</h2>
               <p>
-                Your repository tells us what you built. Your brief tells us who
-                should care.
+                We read the source first. Review the suggested audience and
+                goal, then make the brief yours.
               </p>
             </header>
+            {job.repoFirst && (
+              <ol
+                className="scan-steps"
+                aria-label="Repository analysis progress"
+              >
+                {[
+                  ["Read source", job.phases.inspect.state],
+                  [
+                    "Review readiness",
+                    job.readiness ? "completed" : job.phases.inspect.state,
+                  ],
+                  ["Suggest brief", job.phases.analyze?.state || "idle"],
+                  ["Your review", job.launchBrief ? "completed" : "idle"],
+                ].map(([label, state]) => (
+                  <li key={label} className={state}>
+                    <span>
+                      {state === "completed"
+                        ? "✓"
+                        : state === "running"
+                          ? "◌"
+                          : state === "failed"
+                            ? "!"
+                            : "·"}
+                    </span>
+                    {label}
+                  </li>
+                ))}
+              </ol>
+            )}
             <div className="brief-layout">
               <form
                 className="brief-editor"
@@ -340,7 +398,10 @@ export default function LiveWorkspace({
                 <input
                   id="edit-audience"
                   value={audience}
-                  onChange={(e) => setAudience(e.target.value)}
+                  onChange={(e) => {
+                    editedBrief.current = true;
+                    setAudience(e.target.value);
+                  }}
                   required
                   minLength={3}
                   maxLength={250}
@@ -353,7 +414,10 @@ export default function LiveWorkspace({
                 <input
                   id="edit-goal"
                   value={goal}
-                  onChange={(e) => setGoal(e.target.value)}
+                  onChange={(e) => {
+                    editedBrief.current = true;
+                    setGoal(e.target.value);
+                  }}
                   required
                   minLength={3}
                   maxLength={250}
@@ -366,7 +430,10 @@ export default function LiveWorkspace({
                 <textarea
                   id="edit-context"
                   value={context}
-                  onChange={(e) => setContext(e.target.value)}
+                  onChange={(e) => {
+                    editedBrief.current = true;
+                    setContext(e.target.value);
+                  }}
                   maxLength={600}
                   placeholder="What works today, what is still a prototype, and what makes it useful."
                   disabled={running}
@@ -385,7 +452,11 @@ export default function LiveWorkspace({
                   >
                     Continue to launch stories →
                   </button>
-                  <span>No model call yet.</span>
+                  <span>
+                    {job.analysis
+                      ? "Suggestions need your confirmation."
+                      : "You can write the brief yourself."}
+                  </span>
                 </div>
                 {!job.inspection && !running && (
                   <button
@@ -398,10 +469,15 @@ export default function LiveWorkspace({
                 )}
               </form>
               <aside className="brief-preview">
-                <span className="micro">FROM YOUR REPOSITORY</span>
+                <span className="micro">
+                  {job.analysis
+                    ? "SOURCE-BASED PRODUCT SUMMARY"
+                    : "FROM YOUR REPOSITORY"}
+                </span>
                 <h3>{job.name}</h3>
                 <p>
-                  {job.inspection?.description ||
+                  {job.analysis?.summary ||
+                    job.inspection?.description ||
                     "No repository description available. Add useful context to your brief."}
                 </p>
                 <div className="brief-source-summary">
@@ -417,9 +493,34 @@ export default function LiveWorkspace({
                   </span>
                 </div>
                 <span className="footnote">
-                  We read selected public files. README plans may differ from
-                  implemented features; you review the claims.
+                  We read selected files with your permission. README plans may
+                  differ from implemented features; you review the claims.
                 </span>
+                {job.analysis && (
+                  <>
+                    <h4>Assumptions to confirm</h4>
+                    <ul className="assumption-list">
+                      {job.analysis.assumptions.map((a) => (
+                        <li key={a}>{a}</li>
+                      ))}
+                    </ul>
+                    <span className="footnote">
+                      Suggested by {job.analysis.model} ·{" "}
+                      {job.analysis.evidenceIds.length} source references
+                    </span>
+                  </>
+                )}
+                {job.inspection && !job.analysis && !running && (
+                  <button
+                    className="text-button"
+                    disabled={!modelReady}
+                    onClick={() => void act("analyze", { provider: model })}
+                  >
+                    {modelReady
+                      ? "Suggest my brief with the model →"
+                      : "Model suggestions need a configured provider"}
+                  </button>
+                )}
                 <h4>What you’ll get</h4>
                 <ul className="included-list">
                   <li>Two audience-specific launch stories</li>
@@ -429,6 +530,12 @@ export default function LiveWorkspace({
                 </ul>
               </aside>
             </div>
+            <Readiness
+              job={job}
+              onCopy={(text, label) => {
+                void copy(text, label);
+              }}
+            />
             <details className="source-disclosure">
               <summary>
                 <span>Source evidence & review notes</span>
@@ -546,9 +653,10 @@ export default function LiveWorkspace({
                   Research related projects before writing
                 </label>
                 <p className="footnote">
-                  These sources give context. They do not prove uniqueness or
-                  whether a product has already launched. Social search is not
-                  connected yet.
+                  Searches send your topic to public services; keep private
+                  names and details out of the query. These sources give
+                  context. They do not prove uniqueness or whether a product has
+                  already launched. Social search is not connected yet.
                 </p>
                 {includeResearch && (
                   <>
@@ -890,101 +998,216 @@ export default function LiveWorkspace({
               <summary>
                 <div>
                   <span className="micro">OPTIONAL</span>
-                  <strong>Add a demo video or voiceover</strong>
+                  <strong>Create a launch video</strong>
                 </div>
                 <span className="footnote">
-                  {video ? "Video prepared" : "Use your own footage"} +
+                  {video ? "Video prepared" : "Source visuals or your footage"}{" "}
+                  +
                 </span>
               </summary>
               <div className="media-addon-body">
                 {" "}
                 <span className="micro">04 / DEMO STUDIO</span>
-                <h2>Show it actually working.</h2>
+                <h2>Make the value easy to see.</h2>
                 <p className="section-intro">
-                  Upload a real usage recording. Footage retains user-supplied
-                  provenance.
+                  A 25-second Brag-inspired promo: hook, reveal, source or
+                  footage, and a clear next step. Review the storyboard first.
+                  This does not run the product.
                 </p>
-                {video ? (
-                  <video
-                    className="video-preview"
-                    src={video.url}
-                    controls
-                    preload="metadata"
-                  />
-                ) : (
-                  <div className="video-placeholder">
-                    <span className="play-outline">▷</span>
-                    <span>
-                      {recording
-                        ? "Recording ready to render"
-                        : "No recording uploaded"}
-                    </span>
-                    <span className="footnote">
-                      MP4 / WebM · 3–120 seconds · up to 30 MB
-                    </span>
-                  </div>
-                )}
-                {!capabilities?.render && (
-                  <p className="setup-needed">
-                    Video rendering is unavailable in this local setup. Install
-                    FFmpeg and restart the server to enable it. Your text launch
-                    pack is ready to use separately.
-                  </p>
-                )}
-                <label className="upload-control">
-                  Upload recording
-                  <input
-                    type="file"
-                    accept="video/mp4,video/webm"
-                    disabled={running || !capabilities?.render}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) void upload(f);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
-                <form
-                  className="inline-form"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void act("narrate", { text: narration, approved: true });
-                  }}
-                >
-                  <label htmlFor="narration">Review and edit narration</label>
-                  <textarea
-                    id="narration"
-                    value={narration}
-                    onChange={(e) => {
-                      setNarration(e.target.value);
-                      setApproved(false);
-                    }}
-                    maxLength={600}
-                    placeholder="Generate positioning first, then review the proposed narration."
-                  />
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={approved}
-                      onChange={(e) => setApproved(e.target.checked)}
-                    />
-                    I reviewed the script and approve sending it to ElevenLabs
-                    using my quota.
-                  </label>
+                {!job.storyboard ? (
                   <button
                     className="outline"
-                    disabled={
-                      running ||
-                      !approved ||
-                      !job.positioning ||
-                      !capabilities?.narration ||
-                      narration.length < 10
-                    }
+                    disabled={running || !chosen}
+                    onClick={() => void act("storyboard", {})}
                   >
-                    Generate narration →
+                    Prepare video storyboard →
                   </button>
-                </form>
-                {audio && <audio src={audio.url} controls />}
+                ) : (
+                  <>
+                    <div
+                      className="storyboard-grid"
+                      aria-label="Video storyboard"
+                    >
+                      {job.storyboard.scenes.map((scene, i) => (
+                        <article className="storyboard-scene" key={scene.label}>
+                          <span className="micro">
+                            0{i + 1} / {scene.seconds}s
+                          </span>
+                          <h4>{scene.heading}</h4>
+                          <p>{scene.detail}</p>
+                        </article>
+                      ))}
+                    </div>
+                    <div className="studio-controls">
+                      <button
+                        className="text-button"
+                        onClick={() => {
+                          const link = document.createElement("a");
+                          const url = URL.createObjectURL(
+                            new Blob(
+                              [JSON.stringify(job.storyboard, null, 2)],
+                              { type: "application/json" },
+                            ),
+                          );
+                          link.href = url;
+                          link.download = "sudo-storyboard.json";
+                          link.click();
+                          setTimeout(() => URL.revokeObjectURL(url), 1000);
+                        }}
+                      >
+                        Download storyboard ↓
+                      </button>
+                      <a href={`/api/jobs/${job.id}/brag`} download>
+                        Export to Brag ↗
+                      </a>
+                    </div>
+                    <p className="footnote">
+                      Our renderer adapts{" "}
+                      <a
+                        href="https://github.com/latent-spaces/brag"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Brag’s workflow
+                      </a>{" "}
+                      with Chromium + FFmpeg. The export is for the upstream
+                      skill and Hyperframes; those do not run here.
+                    </p>
+                  </>
+                )}
+                <div className="studio-media-layout">
+                  <div className="studio-visuals">
+                    {video ? (
+                      <video
+                        className="video-preview"
+                        src={video.url}
+                        controls
+                        preload="metadata"
+                      />
+                    ) : (
+                      <div className="video-placeholder">
+                        <span className="play-outline">▷</span>
+                        <span>
+                          {recording
+                            ? "Recording ready to render"
+                            : "Ready for source visuals; footage is optional"}
+                        </span>
+                        <span className="footnote">
+                          MP4 / WebM · 3–120 seconds · up to 30 MB
+                        </span>
+                      </div>
+                    )}
+                    {!capabilities?.render && (
+                      <p className="setup-needed">
+                        Video rendering is unavailable in this local setup.
+                        Install FFmpeg and restart the server to enable it. Your
+                        text launch pack is ready to use separately.
+                      </p>
+                    )}
+                    <label className="upload-control">
+                      Upload recording
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm"
+                        disabled={running || !capabilities?.render}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) void upload(f);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <div className="studio-audio">
+                    <form
+                      className="inline-form"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void act("narrate", {
+                          text: narration,
+                          approved: true,
+                        });
+                      }}
+                    >
+                      <label htmlFor="narration">
+                        Review and edit narration
+                      </label>
+                      <textarea
+                        id="narration"
+                        value={narration}
+                        onChange={(e) => {
+                          setNarration(e.target.value);
+                          setApproved(false);
+                        }}
+                        maxLength={600}
+                        placeholder="Generate positioning first, then review the proposed narration."
+                      />
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={approved}
+                          onChange={(e) => setApproved(e.target.checked)}
+                        />
+                        I reviewed the script and approve sending it to
+                        ElevenLabs using my quota.
+                      </label>
+                      <button
+                        className="outline"
+                        disabled={
+                          running ||
+                          !approved ||
+                          !job.positioning ||
+                          !capabilities?.narration ||
+                          narration.length < 10
+                        }
+                      >
+                        Generate narration →
+                      </button>
+                    </form>
+                    {audio && <audio src={audio.url} controls />}
+                    <div className="music-controls">
+                      <label htmlFor="music-prompt">
+                        Optional instrumental music
+                      </label>
+                      <textarea
+                        id="music-prompt"
+                        value={musicPrompt}
+                        maxLength={500}
+                        onChange={(e) => {
+                          setMusicPrompt(e.target.value);
+                          setMusicApproved(false);
+                        }}
+                      />
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={musicApproved}
+                          onChange={(e) => setMusicApproved(e.target.checked)}
+                        />
+                        I approve sending this prompt to ElevenLabs and using my
+                        music quota.
+                      </label>
+                      <button
+                        className="outline"
+                        disabled={
+                          running ||
+                          !musicApproved ||
+                          !chosen ||
+                          !capabilities?.music
+                        }
+                        onClick={() =>
+                          void act("music", {
+                            prompt: musicPrompt,
+                            approved: true,
+                          })
+                        }
+                      >
+                        Generate music bed →
+                      </button>
+                      {music && <audio src={music.url} controls />}
+                    </div>
+                  </div>
+                </div>
                 <label className="checkbox-label">
                   <input
                     type="checkbox"
@@ -994,18 +1217,65 @@ export default function LiveWorkspace({
                   />
                   Include generated narration
                 </label>
-                <button
-                  className="primary"
-                  disabled={running || !recording || !capabilities?.render}
-                  onClick={() => void act("render", { useNarration: useVoice })}
-                >
-                  Render MP4 →
-                </button>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={useMusic}
+                    onChange={(e) => setUseMusic(e.target.checked)}
+                    disabled={!music}
+                  />
+                  Include generated music
+                </label>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={useRecording}
+                    onChange={(e) => setUseRecording(e.target.checked)}
+                    disabled={!recording}
+                  />
+                  Use my recording in the middle scene
+                </label>
+                <div className="studio-controls">
+                  <button
+                    className="primary"
+                    disabled={
+                      running || !job.storyboard || !capabilities?.promo
+                    }
+                    onClick={() =>
+                      void act("promo", {
+                        useNarration: useVoice && !!audio,
+                        useMusic: useMusic && !!music,
+                        useRecording: useRecording && !!recording,
+                      })
+                    }
+                  >
+                    Render launch promo →
+                  </button>
+                  {recording && (
+                    <button
+                      className="outline"
+                      disabled={running || !capabilities?.render}
+                      onClick={() =>
+                        void act("render", {
+                          useNarration: useVoice && !!audio,
+                        })
+                      }
+                    >
+                      Render recording only →
+                    </button>
+                  )}
+                </div>
                 <p className="footnote">
-                  Up to 30 seconds, 1280×720. Silent rendering is available.
-                  Caption overlays are not implemented yet. Footage is supplied
-                  by the owner.
+                  25 seconds · 1280×720 MP4 + poster. Real source cards are used
+                  when no recording is selected. Source visuals are not evidence
+                  of working interactions.
                 </p>
+                {!capabilities?.promo && (
+                  <p className="footnote">
+                    Promo rendering needs FFmpeg and Chromium. Run npm run
+                    setup:browser, or set PLAYWRIGHT_CHROMIUM_PATH, and restart.
+                  </p>
+                )}
                 {!capabilities?.narration && (
                   <p className="footnote">
                     ElevenLabs needs a local API key and voice ID.
@@ -1074,7 +1344,10 @@ export default function LiveWorkspace({
             </div>
             <div className="context-item">
               <span>Mode</span>
-              <strong>Local backend · public source</strong>
+              <strong>
+                Local backend ·{" "}
+                {job.inspection?.private ? "private source" : "public source"}
+              </strong>
             </div>
             <div className="context-item">
               <span>Actual model use</span>

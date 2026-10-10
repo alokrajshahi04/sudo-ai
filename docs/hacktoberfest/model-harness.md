@@ -2,7 +2,7 @@
 
 Current scope: product understanding, audience positioning, and launch assets.
 The implemented positioning prompt lives in [models.ts](../../server/models.ts).
-Actual configured model access still needs a live provider request.
+The repo-analysis prompt lives in [analysis.ts](../../server/analysis.ts). Gemma 4 analysis and positioning passed live checks on Tolti; runtime proof still comes from independent checks.
 
 ## Controller boundaries
 
@@ -48,11 +48,10 @@ ranking uses metadata with explicit reasons, not model prediction of success.
 Research sources retain URLs/dates/excerpts and actual coverage. Positioning uses
 these small evidence packs. Launch strategy uses the selected angle, simple
 channel purposes/timing, and a developer-owned checklist. Narration requires
-review/approval and configured voice access. FFmpeg accepts only fixed arguments
-and actual uploaded footage. Posts remain drafts.
+review/approval and configured voice access. Chromium renders escaped app-generated SVG with network/scripts denied; FFmpeg accepts only fixed arguments and source cards or validated uploaded footage. Posts remain drafts.
 
 Changing source revision invalidates dependent outputs. Changing angle invalidates
-strategy/voice/video. Adding research or a new URL check invalidates generated
+strategy/voice/music/video/poster/storyboard. Adding research or a new URL check invalidates generated
 copy so stale evidence is not silently reused. Successful unrelated stages remain
 available when another operation fails.
 
@@ -64,3 +63,11 @@ secret-like variables, external services, injected content, unknown evidence IDs
 extra action fields, absent key, empty research, and HTTP-200 without interaction
 verification. Fixtures establish routing/schema behavior; paid live provider
 runs are separate and must record their actual results.
+
+## Repo-first analysis and readiness
+
+Analysis has its own strict schema: summary, proposed audience/goal/context, assumptions and known evidence IDs. It cannot mark the brief confirmed, change source profile, run commands or certify readiness. Suggestions are user-editable and require confirmation. Configured model ID, date and actual result remain visible.
+
+Readiness is deterministic and bounded. Missing README/license/test paths, recognizable starter copy, browser-public credential names and absent runtime proof produce review tasks. Missing paths are not definitive absence; some public keys are intentionally publishable. A fixed coding-agent handoff includes repository/revision, verify-first instructions, source files, no deploy/posting, owner decisions and truthful verification. The model does not generate executable fixes.
+
+Validation repairs identify failing field paths/lengths or invalid evidence IDs without echoing raw provider output. X drafts target under 220 characters for headroom below the hard 280 limit; narration targets 40–50 words for the 25s storyboard. Provider timeout/rejection stops the phase with no automatic provider switch. Private projects require consent and default to no public research.

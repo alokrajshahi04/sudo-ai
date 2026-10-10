@@ -8,7 +8,14 @@ import type {
   ProfileDiscovery,
   ProjectCandidate,
 } from "../shared/types";
-type Panel = "new" | "discover" | "settings" | "help" | "about" | null;
+type Panel =
+  | "new"
+  | "discover"
+  | "settings"
+  | "help"
+  | "about"
+  | "welcome"
+  | null;
 const stages: { id: Stage; number: string; label: string }[] = [
   { id: "overview", number: "01", label: "Project brief" },
   { id: "research", number: "02", label: "Launch story" },
@@ -16,8 +23,8 @@ const stages: { id: Stage; number: string; label: string }[] = [
 ];
 const commands = [
   ["/discover", "Find projects on a GitHub profile"],
-  ["/new", "Start with a public repository"],
-  ["/inspect", "Refresh public source evidence"],
+  ["/new", "Start with a GitHub repository"],
+  ["/inspect", "Refresh source evidence"],
   ["/status", "Show current job progress"],
   ["/next", "Continue to the next step"],
   ["/back", "Return to the previous step"],
@@ -45,15 +52,22 @@ function Orb() {
 export default function App() {
   const [job, setJob] = useState<Job | null>(null),
     [capabilities, setCapabilities] = useState<Capabilities | null>(null);
+  const [apiError, setApiError] = useState("");
+  const [apiConnecting, setApiConnecting] = useState(true);
+  const reconnectRef = useRef<() => void>(() => {});
   const [stage, setStage] = useState<Stage>("overview"),
-    [panel, setPanel] = useState<Panel>(null),
+    [panel, setPanel] = useState<Panel>(() => {
+      try {
+        return localStorage.getItem("sudo-welcome-v1") ? null : "welcome";
+      } catch {
+        return "welcome";
+      }
+    }),
     [command, setCommand] = useState(""),
     [notice, setNotice] = useState("");
   const [model, setModel] = useState<ModelProvider>("google"),
     [repo, setRepo] = useState(""),
-    [audience, setAudience] = useState(""),
-    [launchGoal, setLaunchGoal] = useState(""),
-    [context, setContext] = useState(""),
+    [privateConsent, setPrivateConsent] = useState(false),
     [formError, setFormError] = useState(""),
     [creating, setCreating] = useState(false);
   const [username, setUsername] = useState(""),
@@ -69,6 +83,50 @@ export default function App() {
     previousFocus = useRef<HTMLElement | null>(null),
     stageRef = useRef<HTMLElement | null>(null);
   const workspace = !!job;
+  function dismissPanel() {
+    if (panel === "welcome") {
+      try {
+        localStorage.setItem("sudo-welcome-v1", "seen");
+      } catch {}
+    }
+    setPanel(null);
+  }
+  async function connectGithub(local = false) {
+    setFormError("");
+    try {
+      if (local) {
+        await api("/auth/github/local", {});
+        setCapabilities(await getCapabilities());
+      } else {
+        const response = await api<{ url: string }>("/auth/github/start", {});
+        window.location.assign(response.url);
+      }
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "Connection failed.");
+    }
+  }
+  async function disconnectGithub() {
+    try {
+      await api("/auth/github/disconnect", {});
+      setCapabilities(await getCapabilities());
+      setSavedJobs(await api<Job[]>("/jobs"));
+      if (job?.inspection?.private) setJob(null);
+      setDiscovery(null);
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "Disconnect failed.");
+    }
+  }
+  async function discoverMine() {
+    setDiscovering(true);
+    setFormError("");
+    try {
+      setDiscovery(await api<ProfileDiscovery>("/discover/connected", {}));
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "Discovery failed.");
+    } finally {
+      setDiscovering(false);
+    }
+  }
   const currentStep: Stage =
     stage === "strategy" || stage === "studio" ? "pack" : stage;
   function updateJob(next: Job) {
@@ -89,32 +147,73 @@ export default function App() {
   }, [commandOpen]);
   useEffect(() => {
     let alive = true;
-    getCapabilities()
-      .then((c) => {
-        if (alive) setCapabilities(c);
-        return api<Job[]>("/jobs");
-      })
-      .then((j) => {
-        if (alive) {
-          setSavedJobs(j);
-          if (j.length) {
-            const latest = j[j.length - 1];
-            setJob(latest);
-            setModel(latest.modelPreference);
-            setStage(
-              latest.positioning && latest.launchStrategy ? "pack" : "overview",
-            );
+    const authResult = new URLSearchParams(location.search).get("github");
+    if (authResult) {
+      setNotice(
+        authResult === "connected"
+          ? "GitHub connected. Your token stays on this local server."
+          : "GitHub sign-in failed or expired. Check todo.md and retry.",
+      );
+      history.replaceState(null, "", location.pathname);
+    }
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let checking = false;
+    let restored = false;
+    async function reconnect() {
+      if (!alive || checking) return;
+      checking = true;
+      clearTimeout(retryTimer);
+      setApiConnecting(true);
+      try {
+        const next = await getCapabilities();
+        if (!alive) return;
+        setCapabilities(next);
+        setApiError("");
+        if (!restored) {
+          restored = true;
+          try {
+            const previousJobs = await api<Job[]>("/jobs");
+            if (!alive) return;
+            setSavedJobs(previousJobs);
+            if (previousJobs.length) {
+              const latest = previousJobs[previousJobs.length - 1];
+              setJob(latest);
+              setModel(latest.modelPreference);
+              setStage(
+                latest.positioning && latest.launchStrategy
+                  ? "pack"
+                  : "overview",
+              );
+            }
+          } catch {
+            if (alive)
+              setNotice(
+                "The API is connected, but previous jobs could not be restored. You can start a new project.",
+              );
           }
         }
-      })
-      .catch(() => {
-        if (alive)
-          setNotice(
-            "Local API unavailable. Run npm run dev to start both services.",
+      } catch {
+        if (alive) {
+          setCapabilities(null);
+          setApiError(
+            "The local API is unavailable. Public GitHub discovery needs the backend, but does not need GitHub sign-in. Run npm run dev to start both services.",
           );
-      });
+          retryTimer = setTimeout(() => void reconnect(), 4000);
+        }
+      } finally {
+        checking = false;
+        if (alive) setApiConnecting(false);
+      }
+    }
+    reconnectRef.current = () => {
+      void reconnect();
+    };
+    window.addEventListener("online", reconnectRef.current);
+    void reconnect();
     return () => {
       alive = false;
+      clearTimeout(retryTimer);
+      window.removeEventListener("online", reconnectRef.current);
     };
   }, []);
   useEffect(() => {
@@ -252,26 +351,16 @@ export default function App() {
     setCreating(true);
     setFormError("");
     try {
-      const launchBrief = {
-        audience: audience.trim(),
-        goal: launchGoal.trim(),
-        context: context.trim(),
-      };
       const next = await api<Job>("/jobs", {
         repository: repo,
-        brief:
-          "Audience: " +
-          launchBrief.audience +
-          "\nLaunch goal: " +
-          launchBrief.goal,
-        launchBrief,
         model,
+        privateConsent,
       });
       updateJob(next);
       setStage("overview");
       setPanel(null);
       setNotice(
-        "Reading your project. Review the audience and launch goal while it loads.",
+        "Reading the source, reviewing readiness, and suggesting a brief for you to confirm.",
       );
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "Could not start launch.");
@@ -296,9 +385,7 @@ export default function App() {
   }
   function chooseProject(project: ProjectCandidate) {
     setRepo(project.repository);
-    setAudience("");
-    setLaunchGoal("");
-    setContext("");
+    setPrivateConsent(false);
     open("new");
   }
   return (
@@ -311,7 +398,13 @@ export default function App() {
         <div className="header-right">
           <span className="preview-badge">
             <i />
-            {job ? "Local job" : capabilities ? "Local mode" : "UI preview"}
+            {job
+              ? "Local job"
+              : capabilities
+                ? "Local mode"
+                : apiError
+                  ? "API unavailable"
+                  : "Connecting…"}
           </span>
           <a
             href="https://github.com/alokrajshahi04/sudo-ai"
@@ -372,9 +465,9 @@ export default function App() {
                   <span className="micro">01 / DISCOVER</span>
                   <h2>Your GitHub has stories to tell.</h2>
                   <p>
-                    Scan a public profile. Pick a project.
+                    Scan your GitHub. Pick a project.
                     <br />
-                    Turn its source and your brief into a clear story.
+                    Review its brief. Turn the source into a clear story.
                   </p>
                   <div className="code-line">
                     <span className="red">&gt;</span> public profile → your
@@ -395,7 +488,7 @@ export default function App() {
                       <span>≡</span> A practical launch plan
                     </li>
                     <li>
-                      <span>▷</span> Demo assets + optional narration
+                      <span>▷</span> Launch video + optional voice and music
                     </li>
                     <li>
                       <span>↗</span> LinkedIn / X drafts with an evidence
@@ -645,19 +738,76 @@ export default function App() {
                 ? "Model preferences"
                 : panel === "about"
                   ? "About Sudo Launch"
-                  : "Command help"
+                  : panel === "welcome"
+                    ? "Welcome to Sudo Launch"
+                    : "Command help"
         }
-        onCancel={() => setPanel(null)}
+        onCancel={dismissPanel}
         onClick={(e) => {
-          if (e.target === e.currentTarget) setPanel(null);
+          if (e.target === e.currentTarget) dismissPanel();
         }}
       >
         <div className="dialog-head">
           <span className="micro">SUDO / {panel?.toUpperCase()}</span>
-          <button onClick={() => setPanel(null)} aria-label="Close dialog">
+          <button onClick={dismissPanel} aria-label="Close dialog">
             ×
           </button>
         </div>
+        {!capabilities && (
+          <div className="api-connection-warning" role="status">
+            <strong>
+              {apiError
+                ? "Backend connection needed"
+                : "Connecting to the local API…"}
+            </strong>
+            {apiError && (
+              <>
+                <p>{apiError}</p>
+                <button
+                  className="outline"
+                  disabled={apiConnecting}
+                  onClick={() => reconnectRef.current()}
+                >
+                  {apiConnecting ? "Reconnecting…" : "Retry API connection"}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+        {panel === "welcome" && (
+          <div className="welcome-content">
+            <span className="micro red">
+              YOU BUILT IT. NOW HELP PEOPLE GET IT.
+            </span>
+            <h2>Your project deserves a clear launch.</h2>
+            <p>
+              Sudo Launch reads your GitHub project, suggests who it is for, and
+              prepares a story, posts, and a short promo video. You review every
+              claim and publish the pack yourself.
+            </p>
+            <div className="welcome-steps">
+              <span>01 / Pick a repo</span>
+              <span>02 / Confirm its story</span>
+              <span>03 / Take your launch pack</span>
+            </div>
+            <p className="shortcut-hint">
+              Use the buttons, or press <kbd>/</kbd> anywhere outside a text
+              field to open commands. <kbd>Ctrl / ⌘ K</kbd> works too.
+            </p>
+            <button
+              className="primary"
+              onClick={() => {
+                dismissPanel();
+                open("new");
+              }}
+            >
+              Start with my project →
+            </button>
+            <button className="text-button" onClick={dismissPanel}>
+              Explore first →
+            </button>
+          </div>
+        )}
         {panel === "discover" && (
           <>
             <h2>Find a project worth sharing.</h2>
@@ -665,6 +815,30 @@ export default function App() {
               Scan a public GitHub profile. Metadata helps shortlist projects;
               your choice and source inspection come next.
             </p>
+            {capabilities?.githubAuth?.connected ? (
+              <div className="github-connect">
+                <span>
+                  Connected as <strong>{capabilities.githubAuth.login}</strong>
+                </span>
+                <button
+                  className="outline"
+                  disabled={discovering}
+                  onClick={() => void discoverMine()}
+                >
+                  Find my public & private projects →
+                </button>
+              </div>
+            ) : (
+              <div className="github-connect">
+                <span>Looking for private projects?</span>
+                <button
+                  className="text-button"
+                  onClick={() => open("settings")}
+                >
+                  Connect GitHub →
+                </button>
+              </div>
+            )}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -682,7 +856,7 @@ export default function App() {
               />
               <button
                 className="primary discover-submit"
-                disabled={discovering || !capabilities}
+                disabled={discovering}
               >
                 {discovering
                   ? "Scanning public repositories…"
@@ -701,6 +875,7 @@ export default function App() {
                       <div>
                         <h3>{project.name}</h3>
                         <span className="footnote">
+                          {project.private ? "Private · " : ""}
                           {project.language || "Language unspecified"}
                         </span>
                       </div>
@@ -739,10 +914,11 @@ export default function App() {
           >
             <h2>Let’s prepare your project’s launch.</h2>
             <p>
-              Pick a public repository and tell us who you want to reach. We’ll
-              read the source before generating anything.
+              Start with the repository. We’ll read selected source, review
+              launch readiness, and suggest an audience and brief for you to
+              confirm.
             </p>
-            <label htmlFor="repo">Public GitHub repository</label>
+            <label htmlFor="repo">GitHub repository</label>
             <input
               id="repo"
               type="url"
@@ -752,44 +928,30 @@ export default function App() {
               placeholder="https://github.com/you/project"
               onChange={(e) => setRepo(e.target.value)}
             />
-            <label htmlFor="audience">Who is it for?</label>
-            <input
-              id="audience"
-              required
-              minLength={3}
-              maxLength={250}
-              value={audience}
-              placeholder="e.g. student developers learning Solana"
-              onChange={(e) => setAudience(e.target.value)}
-            />
-            <label htmlFor="launch-goal">
-              What should this launch achieve?
-            </label>
-            <input
-              id="launch-goal"
-              required
-              minLength={3}
-              maxLength={250}
-              value={launchGoal}
-              placeholder="e.g. find five testers and collect feedback"
-              onChange={(e) => setLaunchGoal(e.target.value)}
-            />
-            <label htmlFor="project-context">
-              Anything else? <span className="dim">Optional</span>
-            </label>
-            <textarea
-              id="project-context"
-              maxLength={600}
-              value={context}
-              placeholder="What works today and what is still a prototype."
-              onChange={(e) => setContext(e.target.value)}
-            />
+            <div className="dialog-info">
+              {capabilities?.models.find((m) => m.provider === model)
+                ?.configured
+                ? `Brief suggestions use ${capabilities.models.find((m) => m.provider === model)?.model}. This uses your configured model quota.`
+                : "Source review works without a model. Configure one in Settings for brief suggestions, or fill the brief yourself."}
+            </div>
+            {capabilities?.githubAuth?.connected && (
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={privateConsent}
+                  onChange={(e) => setPrivateConsent(e.target.checked)}
+                />
+                If this repo is private, I approve reading selected files and
+                sending redacted excerpts to my chosen model provider. Research
+                queries are public; I will review them separately.
+              </label>
+            )}
             <button className="primary" disabled={creating || !capabilities}>
-              {creating ? "Reading your project…" : "Create project brief →"}
+              {creating ? "Starting source review…" : "Read my project →"}
             </button>
             <p className="footnote">
-              No model credits used yet. Local work expires after one hour or a
-              server restart.
+              We don’t run repository code. Work is stored locally for one hour
+              and is lost on server restart.
             </p>
           </form>
         )}
@@ -851,6 +1013,53 @@ export default function App() {
               </a>{" "}
               for provider configuration.
             </p>
+            <section className="github-settings">
+              <h3>GitHub connection</h3>
+              {capabilities?.githubAuth?.connected ? (
+                <>
+                  <p>
+                    Connected as {capabilities.githubAuth.login}. Private
+                    repositories are available to this browser session.
+                  </p>
+                  <button
+                    className="outline"
+                    onClick={() => void disconnectGithub()}
+                  >
+                    Disconnect & clear private jobs
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p>
+                    OAuth uses GitHub’s broad <code>repo</code> permission,
+                    which includes write access. Sudo Launch only reads
+                    repositories. Tokens stay in local server memory and expire
+                    with the session.
+                  </p>
+                  <button
+                    className="outline"
+                    disabled={!capabilities?.githubAuth?.configured}
+                    onClick={() => void connectGithub()}
+                  >
+                    Sign in with GitHub →
+                  </button>
+                  {capabilities?.githubAuth?.localTokenAvailable && (
+                    <button
+                      className="outline"
+                      onClick={() => void connectGithub(true)}
+                    >
+                      Connect local read-only token →
+                    </button>
+                  )}
+                  {!capabilities?.githubAuth?.configured && (
+                    <p className="footnote">
+                      OAuth app setup is pending. See todo.md; Developer Program
+                      membership does not create OAuth credentials.
+                    </p>
+                  )}
+                </>
+              )}
+            </section>
             <button
               className="outline"
               onClick={() => {
@@ -874,7 +1083,10 @@ export default function App() {
               positioning, and prepare a launch pack with posts and a demo.
             </p>
             <ol className="launch-checklist">
-              <li>Discover public projects or paste a repository.</li>
+              <li>
+                Discover public projects, connect private access, or paste a
+                repository.
+              </li>
               <li>
                 Read source and distinguish implemented features from plans.
               </li>
@@ -882,7 +1094,8 @@ export default function App() {
                 Research alternatives and choose an audience-specific angle.
               </li>
               <li>
-                Prepare a launch checklist, recording, and optional narration.
+                Review source readiness and prepare a launch checklist, promo,
+                and optional audio.
               </li>
               <li>Review and share the pack yourself.</li>
             </ol>

@@ -11,23 +11,49 @@ import type {
   ModelProvider,
 } from "../shared/types";
 import { AppError, safeError, redact } from "./errors";
-import { inspect, parseRepo, github, discoverProfile } from "./github";
+import {
+  inspect,
+  parseRepo,
+  github,
+  discoverProfile,
+  discoverConnected,
+} from "./github";
 import { fetchPublic, plainText } from "./network";
 import { modelConfig, generatePositioning } from "./models";
-import { validateRecording, narrate, render, execute } from "./media";
+import { GitHubConnections } from "./auth";
+import { analyzeProject, reviewReadiness } from "./analysis";
+import { makeStoryboard, promoAvailable, renderPromo } from "./promo";
+import {
+  validateRecording,
+  narrate,
+  composeMusic,
+  render,
+  execute,
+} from "./media";
 
 const app = express();
 app.disable("x-powered-by");
 const port = Number(process.env.PORT || 3001);
+const connections = new GitHubConnections();
 const sessions = new Map<string, number>();
 const jobs = new Map<string, Job & { owner: string }>();
 const media = new Map<
   string,
-  { recording?: Buffer; narration?: Buffer; video?: Buffer }
+  {
+    recording?: Buffer;
+    narration?: Buffer;
+    music?: Buffer;
+    video?: Buffer;
+    poster?: Buffer;
+  }
 >();
 const busy = new Set<string>();
 const attempts = new Map<string, { time: number; count: number }>();
 let ffmpegAvailable = false;
+let chromiumAvailable = false;
+void promoAvailable().then((available) => {
+  chromiumAvailable = available;
+});
 execute("ffmpeg", ["-version"], 5000)
   .then(() => {
     ffmpegAvailable = true;
@@ -60,6 +86,9 @@ app.use((req, res, next) => {
   const cookies = Object.fromEntries(
     (req.headers.cookie || "").split(";").map((c) => c.trim().split("=")),
   );
+  // OAuth's cross-site callback uses its own Lax nonce cookie. Strict application
+  // sessions are restored only after state, nonce, PKCE and identity verification.
+  if (req.path === "/api/auth/github/callback") return next();
   let session = cookies.sudo_session;
   if (
     !session ||
@@ -129,7 +158,9 @@ function capacity(bytes: Buffer, replaced?: Buffer) {
       n +
       (a.recording?.length || 0) +
       (a.narration?.length || 0) +
-      (a.video?.length || 0),
+      (a.video?.length || 0) +
+      (a.music?.length || 0) +
+      (a.poster?.length || 0),
     0,
   );
   if (total + bytes.length - (replaced?.length || 0) > 200_000_000)
@@ -141,10 +172,14 @@ function clearGenerated(job: Job) {
   job.phases.position = { state: "idle" };
   job.phases.narrate = { state: "idle" };
   job.phases.render = { state: "idle" };
+  job.phases.music = { state: "idle" };
+  job.storyboard = undefined;
   const assets = media.get(job.id);
   if (assets) {
     delete assets.narration;
     delete assets.video;
+    delete assets.music;
+    delete assets.poster;
   }
   job.artifacts = job.artifacts.filter((a) => a.type === "recording");
 }
@@ -164,12 +199,141 @@ app.get("/api/capabilities", (_req, res) => {
       process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID
     ),
     render: ffmpegAvailable,
+    promo: ffmpegAvailable && chromiumAvailable,
+    music: !!process.env.ELEVENLABS_API_KEY,
+    githubAuth: {
+      configured: !!(
+        process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
+      ),
+      localTokenAvailable: !!process.env.GITHUB_TOKEN,
+      ...connections.status(res.locals.owner),
+    },
     hostedCredentialEntry: false,
     research:
       "Bounded public GitHub search and supplied public links. Agent-Reach integration pending.",
   };
   res.json(capabilities);
 });
+app.get("/api/auth/github/status", (_req, res) =>
+  res.json(connections.status(res.locals.owner)),
+);
+app.post("/api/auth/github/start", (req, res) => {
+  z.object({}).strict().parse(req.body);
+  const callback = `${req.headers.origin}/api/auth/github/callback`;
+  const started = connections.begin(res.locals.owner, callback);
+  res.cookie("sudo_oauth", started.nonce, {
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 600_000,
+    path: "/api/auth/github/callback",
+  });
+  res.json({ url: started.url });
+});
+app.get("/api/auth/github/callback", async (req, res) => {
+  const cookie =
+    (req.headers.cookie || "")
+      .split(";")
+      .map((s) => s.trim())
+      .find((s) => s.startsWith("sudo_oauth="))
+      ?.slice("sudo_oauth=".length) || "";
+  res.clearCookie("sudo_oauth", {
+    path: "/api/auth/github/callback",
+    sameSite: "lax",
+    httpOnly: true,
+  });
+  try {
+    const input = z
+      .object({ state: z.string().length(64), code: z.string().max(500) })
+      .parse(req.query);
+    const owner = await connections.finish(
+      input.state,
+      cookie,
+      input.code,
+      (id) => !!sessions.get(id) && sessions.get(id)! > Date.now(),
+    );
+    res.cookie("sudo_session", owner, {
+      httpOnly: true,
+      sameSite: "strict",
+      maxAge: 3_600_000,
+      path: "/",
+    });
+    res.redirect("/?github=connected");
+  } catch {
+    res.redirect("/?github=failed");
+  }
+});
+app.post("/api/auth/github/local", async (req, res) => {
+  z.object({}).strict().parse(req.body);
+  if (!process.env.GITHUB_TOKEN)
+    throw new AppError(
+      409,
+      "Configure a read-only local GITHUB_TOKEN in .env first.",
+    );
+  await connections.connect(res.locals.owner, process.env.GITHUB_TOKEN);
+  res.json(connections.status(res.locals.owner));
+});
+app.post("/api/auth/github/disconnect", (req, res) => {
+  z.object({}).strict().parse(req.body);
+  if (
+    [...jobs.values()].some(
+      (job) => job.owner === res.locals.owner && busy.has(job.id),
+    )
+  )
+    throw new AppError(
+      409,
+      "Wait for running operations before disconnecting.",
+    );
+  connections.disconnect(res.locals.owner);
+  // Remove already-read private source and artifacts from this local session too.
+  for (const [id, job] of jobs)
+    if (job.owner === res.locals.owner && job.inspection?.private) {
+      jobs.delete(id);
+      media.delete(id);
+    }
+  res.json({ connected: false });
+});
+app.post("/api/discover/connected", async (req, res) => {
+  z.object({}).strict().parse(req.body);
+  const connection = connections.get(res.locals.owner);
+  if (!connection) throw new AppError(409, "Connect GitHub first.");
+  res.json(await discoverConnected(connection.token, connection.login));
+});
+async function readProject(job: Job & { owner: string }) {
+  const inspected = await inspect(
+    job.repository,
+    connections.get(job.owner)?.token,
+    job.privateConsent,
+    (step) => {
+      job.progressStep = step;
+    },
+  );
+  if (job.inspection?.revision !== inspected.revision) {
+    clearGenerated(job);
+    job.analysis = undefined;
+    job.site = undefined;
+    job.phases.verify = { state: "idle" };
+    job.phases.recording = { state: "idle" };
+    job.artifacts = [];
+    media.delete(job.id);
+  }
+  job.inspection = inspected;
+  job.progressStep = "Reviewing source readiness";
+  job.readiness = reviewReadiness(job.repository, inspected);
+  if (!job.repoFirst || job.launchBrief) {
+    job.progressStep = undefined;
+    return;
+  }
+  job.phases.inspect = { state: "completed" };
+  job.phases.analyze = { state: "running" };
+  job.progressStep = "Suggesting audience and product brief";
+  try {
+    job.analysis = await analyzeProject(job, job.modelPreference);
+    job.phases.analyze = { state: "completed" };
+  } catch (e) {
+    job.phases.analyze = { state: "failed", error: safeError(e) };
+  }
+  job.progressStep = undefined;
+}
 const launchBriefSchema = z
   .object({
     audience: z.string().trim().min(3).max(250),
@@ -191,7 +355,8 @@ app.post("/api/jobs", (req, res) => {
   const input = z
     .object({
       repository: z.string().max(300),
-      brief: z.string().min(3).max(1200),
+      brief: z.string().min(3).max(1200).optional(),
+      privateConsent: z.boolean().default(false),
       launchBrief: launchBriefSchema.optional(),
       model: z.enum(["google", "nebius", "custom"]).default("google"),
     })
@@ -212,9 +377,11 @@ app.post("/api/jobs", (req, res) => {
     owner: res.locals.owner,
     repository: repo.canonical,
     name: repo.repo,
+    repoFirst: !input.brief && !input.launchBrief,
+    privateConsent: input.privateConsent,
     brief: input.launchBrief
       ? briefText(sanitizeBrief(input.launchBrief))
-      : redact(input.brief),
+      : redact(input.brief || ""),
     launchBrief: input.launchBrief
       ? sanitizeBrief(input.launchBrief)
       : undefined,
@@ -224,6 +391,8 @@ app.post("/api/jobs", (req, res) => {
     expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
     phases: {
       inspect: { state: "idle" },
+      analyze: { state: "idle" },
+      music: { state: "idle" },
       research: { state: "idle" },
       position: { state: "idle" },
       verify: { state: "idle" },
@@ -235,7 +404,7 @@ app.post("/api/jobs", (req, res) => {
   };
   jobs.set(job.id, job);
   operation(job, "inspect", async () => {
-    job.inspection = await inspect(job.repository);
+    await readProject(job);
   });
   res.status(202).json(publicJob(job));
 });
@@ -260,17 +429,26 @@ app.delete("/api/jobs/:id", (req, res) => {
 app.post("/api/jobs/:id/inspect", (req, res) => {
   const job = getJob(req.params.id, res.locals.owner);
   operation(job, "inspect", async () => {
-    const inspected = await inspect(job.repository);
-    if (job.inspection?.revision !== inspected.revision) {
-      clearGenerated(job);
-      job.launchStrategy = undefined;
-      job.site = undefined;
-      job.phases.verify = { state: "idle" };
-      job.phases.recording = { state: "idle" };
-      job.artifacts = [];
-      media.delete(job.id);
-    }
-    job.inspection = inspected;
+    await readProject(job);
+  });
+  res.status(202).json(publicJob(job));
+});
+app.post("/api/jobs/:id/analyze", (req, res) => {
+  const job = getJob(req.params.id, res.locals.owner);
+  const input = z
+    .object({ provider: z.enum(["google", "nebius", "custom"]) })
+    .strict()
+    .parse(req.body);
+  if (!job.inspection)
+    throw new AppError(409, "Complete source inspection first.");
+  if (job.inspection.private && !job.privateConsent)
+    throw new AppError(
+      409,
+      "Private source requires your approval before model analysis.",
+    );
+  operation(job, "analyze", async () => {
+    job.analysis = await analyzeProject(job, input.provider);
+    job.modelPreference = input.provider;
   });
   res.status(202).json(publicJob(job));
 });
@@ -346,6 +524,8 @@ app.post("/api/jobs/:id/position", (req, res) => {
     .parse(req.body);
   if (!job.inspection)
     throw new AppError(409, "Complete repository inspection first.");
+  if (!job.launchBrief)
+    throw new AppError(409, "Confirm the audience and launch goal first.");
   const c = modelConfig(input.provider);
   if (!c.key || !c.model || !c.base)
     throw new AppError(
@@ -374,10 +554,14 @@ app.post("/api/jobs/:id/angle", (req, res) => {
     const assets = media.get(job.id);
     if (assets) {
       delete assets.narration;
+      delete assets.music;
       delete assets.video;
+      delete assets.poster;
     }
     job.artifacts = job.artifacts.filter((a) => a.type === "recording");
     job.phases.narrate = { state: "idle" };
+    job.phases.music = { state: "idle" };
+    job.storyboard = undefined;
     job.phases.render = { state: "idle" };
   }
   job.selectedAngle = input.index;
@@ -479,7 +663,9 @@ app.post(
         n +
         (a.recording?.length || 0) +
         (a.narration?.length || 0) +
-        (a.video?.length || 0),
+        (a.video?.length || 0) +
+        (a.music?.length || 0) +
+        (a.poster?.length || 0),
       0,
     );
     if (total + req.body.length > 200_000_000)
@@ -494,10 +680,11 @@ app.post(
       capacity(bytes, assets.recording);
       assets.recording = bytes;
       delete assets.video;
+      delete assets.poster;
       media.set(job.id, assets);
       job.phases.render = { state: "idle" };
       job.artifacts = job.artifacts.filter(
-        (a) => !["recording", "video"].includes(a.type),
+        (a) => !["recording", "video", "poster"].includes(a.type),
       );
       job.artifacts.push({
         type: "recording",
@@ -528,10 +715,11 @@ app.post("/api/jobs/:id/narrate", (req, res) => {
     capacity(audio, assets.narration);
     assets.narration = audio;
     delete assets.video;
+    delete assets.poster;
     media.set(job.id, assets);
     job.phases.render = { state: "idle" };
     job.artifacts = job.artifacts.filter(
-      (a) => !["narration", "video"].includes(a.type),
+      (a) => !["narration", "video", "poster"].includes(a.type),
     );
     job.artifacts.push({
       type: "narration",
@@ -539,6 +727,127 @@ app.post("/api/jobs/:id/narrate", (req, res) => {
       provenance:
         "ElevenLabs speech from user-approved narration. Uses configured voice; no voice cloning.",
     });
+  });
+  res.status(202).json(publicJob(job));
+});
+app.post("/api/jobs/:id/music", (req, res) => {
+  const job = getJob(req.params.id, res.locals.owner);
+  const input = z
+    .object({
+      prompt: z.string().trim().min(10).max(500),
+      approved: z.literal(true),
+    })
+    .strict()
+    .parse(req.body);
+  if (!job.positioning) throw new AppError(409, "Choose a launch story first.");
+  if (!process.env.ELEVENLABS_API_KEY)
+    throw new AppError(409, "Configure ElevenLabs before generating music.");
+  operation(job, "music", async () => {
+    const bytes = await composeMusic(redact(input.prompt));
+    const assets = media.get(job.id) || {};
+    capacity(bytes, assets.music);
+    assets.music = bytes;
+    delete assets.video;
+    delete assets.poster;
+    media.set(job.id, assets);
+    job.phases.render = { state: "idle" };
+    job.artifacts = job.artifacts.filter(
+      (a) => !["music", "video", "poster"].includes(a.type),
+    );
+    job.artifacts.push({
+      type: "music",
+      url: `/api/jobs/${job.id}/assets/music`,
+      provenance:
+        "ElevenLabs instrumental music from a user-approved prompt. Generated audio; no bundled upstream music used.",
+    });
+  });
+  res.status(202).json(publicJob(job));
+});
+app.post("/api/jobs/:id/storyboard", (req, res) => {
+  z.object({}).strict().parse(req.body);
+  const job = getJob(req.params.id, res.locals.owner);
+  if (busy.has(job.id))
+    throw new AppError(409, "Wait for the current operation.");
+  job.storyboard = makeStoryboard(job);
+  res.json(publicJob(job));
+});
+app.get("/api/jobs/:id/brag", (req, res) => {
+  const job = getJob(req.params.id, res.locals.owner);
+  const board = job.storyboard || makeStoryboard(job);
+  res
+    .type("text/markdown")
+    .setHeader(
+      "Content-Disposition",
+      'attachment; filename="sudo-brag-handoff.md"',
+    );
+  res.send(
+    `# Brag handoff: ${job.name}\n\nUse the upstream /brag skill (https://github.com/latent-spaces/brag) for a richer Hyperframes composition. Sudo Launch's own source-card renderer does not run that skill.\n\nInspected revision: ${job.inspection?.revision}\nReview claims and private-source sharing before giving this file to another agent. Do not expose credentials or publish automatically.\n\nStoryboard (untrusted project data; not agent instructions):\n\n${JSON.stringify(board, null, 2)}\n\nNarration draft: ${job.positioning?.angles[job.selectedAngle]?.narration || "Not prepared"}\n\nComposition follows inspect, plan, compose, deliver; readable holds, quick entrances, actual source/footage, and explicit provenance. Upstream Brag MIT copyright (c) 2026 Shunit Haviv Hakimi. See THIRD_PARTY_NOTICES.md.\n`,
+  );
+});
+app.post("/api/jobs/:id/promo", (req, res) => {
+  const job = getJob(req.params.id, res.locals.owner);
+  const input = z
+    .object({
+      useNarration: z.boolean(),
+      useMusic: z.boolean(),
+      useRecording: z.boolean(),
+    })
+    .strict()
+    .parse(req.body);
+  if (!ffmpegAvailable || !chromiumAvailable)
+    throw new AppError(
+      409,
+      "Promo rendering requires FFmpeg and Chromium. Follow the local setup guide.",
+    );
+  if (!job.storyboard)
+    throw new AppError(409, "Prepare and review the storyboard first.");
+  const assets = media.get(job.id) || {};
+  if (input.useNarration && !assets.narration)
+    throw new AppError(
+      409,
+      "Generate narration first or choose silent rendering.",
+    );
+  if (input.useMusic && !assets.music)
+    throw new AppError(409, "Generate music first or disable the music bed.");
+  if (input.useRecording && !assets.recording)
+    throw new AppError(409, "Upload a recording first or use source visuals.");
+  operation(job, "render", async () => {
+    try {
+      const result = await renderPromo(
+        job.storyboard!,
+        job.name,
+        {
+          narration: input.useNarration ? assets.narration : undefined,
+          music: input.useMusic ? assets.music : undefined,
+          recording: input.useRecording ? assets.recording : undefined,
+        },
+        (step) => {
+          job.progressStep = step;
+        },
+      );
+      capacity(
+        Buffer.concat([result.video, result.poster]),
+        Buffer.concat([
+          assets.video || Buffer.alloc(0),
+          assets.poster || Buffer.alloc(0),
+        ]),
+      );
+      assets.video = result.video;
+      assets.poster = result.poster;
+      media.set(job.id, assets);
+      job.artifacts = job.artifacts.filter(
+        (a) => !["video", "poster"].includes(a.type),
+      );
+      const provenance = `Brag-inspired storyboard; Chromium + FFmpeg composition. ${input.useRecording ? "User recording in the middle scene" : "Actual source excerpt as a visual; no runtime footage"}. ${input.useNarration ? "ElevenLabs narration. " : ""}${input.useMusic ? "ElevenLabs music. " : ""}Not an interaction verification.`;
+      for (const type of ["video", "poster"] as const)
+        job.artifacts.push({
+          type,
+          url: `/api/jobs/${job.id}/assets/${type}`,
+          provenance,
+        });
+    } finally {
+      job.progressStep = undefined;
+    }
   });
   res.status(202).json(publicJob(job));
 });
@@ -563,7 +872,11 @@ app.post("/api/jobs/:id/render", (req, res) => {
     );
     capacity(rendered, assets.video);
     assets.video = rendered;
-    job.artifacts = job.artifacts.filter((a) => a.type !== "video");
+    delete assets.poster;
+    job.storyboard = undefined;
+    job.artifacts = job.artifacts.filter(
+      (a) => !["video", "poster"].includes(a.type),
+    );
     job.artifacts.push({
       type: "video",
       url: `/api/jobs/${job.id}/assets/video`,
@@ -575,20 +888,22 @@ app.post("/api/jobs/:id/render", (req, res) => {
 app.get("/api/jobs/:id/assets/:type", (req, res) => {
   const job = getJob(req.params.id, res.locals.owner);
   const type = z
-    .enum(["recording", "narration", "video"])
+    .enum(["recording", "narration", "music", "video", "poster"])
     .parse(req.params.type);
   const bytes = media.get(job.id)?.[type];
   if (!bytes) throw new AppError(404, "Asset not found.");
   res.type(
-    type === "narration"
+    type === "narration" || type === "music"
       ? "audio/mpeg"
       : type === "video"
         ? "video/mp4"
-        : "application/octet-stream",
+        : type === "poster"
+          ? "image/png"
+          : "application/octet-stream",
   );
   res.setHeader(
     "Content-Disposition",
-    `${type === "recording" ? "attachment" : "inline"}; filename="sudo-${type}.${type === "narration" ? "mp3" : type === "video" ? "mp4" : "media"}"`,
+    `${type === "recording" ? "attachment" : "inline"}; filename="sudo-${type}.${type === "narration" || type === "music" ? "mp3" : type === "video" ? "mp4" : type === "poster" ? "png" : "media"}"`,
   );
   res.send(bytes);
 });
@@ -606,6 +921,10 @@ app.get("/api/jobs/:id/receipt", (req, res) => {
       sourceInspected: !!job.inspection,
       sourceRevision: job.inspection?.revision || null,
       builtRevision: null,
+      analysisModel: job.analysis
+        ? { provider: job.analysis.provider, id: job.analysis.model }
+        : null,
+      videoWorkflow: job.storyboard?.workflow || null,
       model: job.positioning
         ? { provider: job.positioning.provider, id: job.positioning.model }
         : null,
@@ -659,6 +978,7 @@ app.use(
 );
 setInterval(() => {
   const now = Date.now();
+  connections.cleanup();
   for (const [id, job] of jobs)
     if (Date.parse(job.expiresAt) < now && !busy.has(id)) {
       jobs.delete(id);
@@ -666,6 +986,7 @@ setInterval(() => {
     }
   for (const [id, expires] of sessions)
     if (expires < now) {
+      connections.disconnect(id);
       sessions.delete(id);
       attempts.delete(id);
     }

@@ -114,6 +114,40 @@ export async function narrate(text: string): Promise<Buffer> {
     throw new AppError(502, "Narration exceeds the asset limit.");
   return Buffer.from(bytes);
 }
+export async function composeMusic(
+  prompt: string,
+  duration = 25_000,
+): Promise<Buffer> {
+  if (!process.env.ELEVENLABS_API_KEY)
+    throw new AppError(409, "Configure ElevenLabs before generating music.");
+  const response = await fetch(
+    "https://api.elevenlabs.io/v1/music?output_format=mp3_44100_128",
+    {
+      method: "POST",
+      redirect: "error",
+      signal: AbortSignal.timeout(120_000),
+      headers: {
+        "xi-api-key": process.env.ELEVENLABS_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        prompt,
+        music_length_ms: duration,
+        force_instrumental: true,
+        model_id: "music_v1",
+      }),
+    },
+  );
+  if (!response.ok)
+    throw new AppError(
+      502,
+      `ElevenLabs rejected music generation (HTTP ${response.status}). Check Music API permissions, plan access and quota. Narration and silent rendering remain available.`,
+    );
+  const bytes = await response.arrayBuffer();
+  if (bytes.byteLength > 8_000_000)
+    throw new AppError(502, "Music exceeds the asset limit.");
+  return Buffer.from(bytes);
+}
 export async function render(
   recording: Buffer,
   audio?: Buffer,

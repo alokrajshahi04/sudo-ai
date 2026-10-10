@@ -1,130 +1,51 @@
 # Sudo Launch — product marketing and launch assistant
 
-Updated 2026-10-10 after the participant's mentor discussion. This is the current
-product direction. Earlier deployment work is preserved in Git checkpoint
-`dbd6d47`; it is no longer the active product scope.
+Current direction, 2026-10-10: help student and solo developers turn neglected projects into clear, source-grounded launch packs. The mentor recommended marketing/product launching, GitHub discovery, and clearer onboarding. The participant subsequently added repo-first suggestions, private access, source-readiness guidance and launch-video composition.
 
-## What we are building
+## What the developer gets
 
-**Sudo Launch helps developers find projects worth sharing and turn them into
-clear, evidence-grounded marketing launch packs.**
+Paste a repository or choose one from a GitHub shortlist. Read selected source at a pinned revision, get a suggested product brief, confirm the audience/goal, then choose between two launch stories. Download LinkedIn/X drafts, a sharing plan, a Markdown launch kit, a JSON evidence receipt, and optional 25s promo/video/audio/poster assets. The developer reviews and publishes everything.
 
-A developer enters a public GitHub username or repository. We help them discover
-projects, explain the product, choose an audience, research positioning, prepare
-a launch plan, and create posts plus a demo asset. The developer reviews and
-publishes the result.
+The differentiator is source-grounded marketing with honest product status: a starter stays a prototype, a CLI gets a usage story, and a library does not need a website to be worth sharing. Readiness findings come with a portable coding-agent prompt; Sudo Launch itself does not modify the repo.
 
-The first audience is student and solo developers whose projects lack a clear
-story or public launch. The product is a marketing assistant, not a deployment
-platform. The application needs its own server for API calls; it does not
-orchestrate the input project's backend or provisioning.
+## Current features
 
-## Mentor feedback incorporated
-
-Participant-provided notes recommend positioning the product as a marketer /
-product launcher; discovering projects on GitHub profiles; improving first-visit
-copy and guidance; avoiding deployment integrations and automatic code previews;
-and considering CLI/MCP later.
-
-Interpretation: remove Vercel/DigitalOcean deployment screens and mutation plans.
-Offer a short developer-owned publishing checklist where relevant. Keep actual
-marketing assets, bounded source reading, research, and reviewed narration.
-Do not run a user's code, launch preview environments, fix their issues, create
-cloud resources, or post to their social accounts.
-
-## Journey
-
-1. **Discover:** scan a public GitHub profile or paste any public repository.
-2. **Understand:** read bounded relevant source at a recorded commit, distinguish
-   metadata/README plans from implemented features, and collect the owner's brief.
-3. **Position:** research alternatives/context and propose two audience-specific
-   angles, with their own posts and narration.
-4. **Launch plan:** review channels, a README/distribution checklist, and sharing
-   sequence. Publishing/hosting remains the developer's task.
-5. **Demo:** upload real usage footage; optionally generate reviewed ElevenLabs
-   narration; render an MP4.
-6. **Launch pack:** review/copy drafts and download media plus the evidence receipt.
-
-Public apps, Next.js/backend projects, Python tools, libraries, workspaces,
-documentation, and prototypes can all enter the marketing workflow. Project type
-changes the story and caveats, not permission to deploy or a requirement to use
-React/Vite. Unknown/large/complex projects show evidence limits and request an
-owner brief; we do not claim every repository can be understood completely.
-
-## First-version scope
-
-| Feature | Current scope |
+| Feature | Scope |
 | --- | --- |
-| GitHub discovery | Up to 100 recently pushed owned public repos; shortlist up to 30 non-empty, non-fork, non-archived projects with explicit metadata-based reasons. |
-| Source context | Immutable commit, root README/manifests, selected language/framework entry files, at most ten bounded files; no code execution. |
-| Product profile | Vite, server web, Python tool, library/CLI, multi-service/workspace, documentation, or unknown. All are eligible for marketing. |
-| Research | Bounded public GitHub search plus up to three supplied public links, source excerpts/dates, and coverage limits. Agent-Reach bridge remains planned. |
-| Positioning | Two angles with audience, reason to try, supporting evidence IDs, LinkedIn/X drafts, and narration. |
-| Model choice | Gemma via Google, Nebius exact catalog model, or a locally configured OpenAI-compatible API. Explicit selection; no hidden fallback. |
-| Launch strategy | Channels, sharing sequence, and developer-owned release checklist. Optional existing URL reachability check is separate from feature verification. |
-| Demo assets | User-supplied MP4/WebM plus optional reviewed ElevenLabs narration and fixed FFmpeg rendering. No code preview or automatic capture. |
-| Launch receipt | Actual inspected commit, research sources, executed model/checks, user-footage provenance, and limitations. |
-| Local use | Terminal web UI and local Node service; credentials in ignored server `.env`; no browser key collection yet. |
+| Discovery | Public profile shortlist; connected GitHub shortlist including private projects. Up to 100 recent repos checked, 30 eligible projects shown, with metadata-based reasons. |
+| Source | Immutable commit, bounded tree and up to 12 selected README/manifests/entry files; no install/build/runtime execution. Secret paths excluded and common tokens redacted. |
+| Repo-first brief | Gemma/Nebius/custom model suggests summary, audience, goal, context, assumptions and evidence IDs; owner confirmation is required. Manual brief entry works when the model is unavailable. |
+| Readiness handoff | Deterministic checks for documentation/setup/license/test paths/starter content/public credential names and missing runtime proof. Findings must be verified before an external coding agent fixes them. |
+| Positioning | Two evidence-cited stories with LinkedIn/X drafts and narration; exact configured model recorded, schema/IDs checked, one targeted repair, no hidden fallback. |
+| Research | Bounded public GitHub search plus up to three supplied public links. Private jobs default to research disabled. Agent-Reach/social research remains planned. |
+| Launch plan | Reviewable channels/checklist; optional public URL reachability does not verify features or launch history. |
+| Video | Brag-inspired storyboard, escaped source visuals or real user footage, optional approved ElevenLabs narration/music, fixed Chromium + FFmpeg composition, MP4 and PNG poster. Brag handoff export supports the upstream skill; Hyperframes does not run here. |
+| Local use | React terminal-inspired web app + Node API. Keys in ignored server `.env`; OAuth tokens scoped to one browser session. One-hour in-memory jobs. |
 
-Profile discovery is automatic, but the owner selects the project/audience before
-paid generation. No batch spending or autonomous social publishing. Research
-absence does not prove originality. A listed homepage is not a verified live app
-or proof of launch history. HTTP reachability is not verified product behavior.
+First visit explains the product and `/` shortcut. Three guided screens—Project brief → Launch story → Launch pack—keep the primary decisions visible. Source details, readiness findings and optional studio expand within one document rather than competing scroll panes.
 
-## UI direction
+## Boundaries and risks
 
-Terminal-inspired, with visible actions and a first-visit explanation:
-“Give your project a launch story.” Primary action: “Find my projects”; alternate:
-“Start with a repository.” The About popup explains the workflow without filling
-the landing page. Slash commands overlay upward with descriptions and keyboard use.
+No project deployment integrations, cloud provisioning, automatic product previews, arbitrary tool execution, repository repair, social auto-posting or batch spending. The participant owns publication and any coding-agent fixes.
 
-The six logical activities are grouped into three guided screens: Project brief,
-Launch story, and Launch pack. Audience and goal are required; a repository
-description never counts as a completed audience brief. Research feeds an explicit
-two-story generation action, and the selected story leads to a pack containing
-posts and a sharing plan. Demo footage/voiceover is an optional pack addition.
+Bounded source inspection is not universal repository understanding. Citations are not proof that every generated claim is true. README plans, missing source, unknown project types, research gaps and failed provider calls stay visible. Profile ranking is not a success prediction, and absent competitors do not establish originality.
 
-Progress stays visible while one document scrolls. Source evidence and local run
-details expand inside it. Commands open on request as keyboard shortcuts, rather
-than occupying a permanent footer. No fictional examples enter a real project flow.
-See [UI/UX](ui-ux.md) for the interaction contract.
+Private source requires explicit approval before reading/model transfer. Public queries can leak private topics, so private projects start with research disabled. GitHub OAuth's `repo` scope is broad; the app only reads, and a selected-repo read-only local token is available. A read-only GitHub App is preferable for future hosting.
 
-## Evidence, risks, and differentiation
+Source-card videos are promos, not evidence of working interactions. Real footage is the stronger product demonstration. Model/voice/music generation uses quota only through explicit selected-project actions; user review remains necessary.
 
-- Make positioning respond to actual product/owner/research context, not a generic
-  hype template. Link claims to evidence and retain uncertainty.
-- Avoid overclaiming implementations from READMEs, or equating citations with
-  truth. Owner review remains necessary before posting.
-- Broad repository support means partial inspection, not universal runtime
-  understanding. Missing manifests should not block a README-first marketing pack.
-- Keep profile ranking explainable and modest: description/homepage/recent updates
-  help shortlist; they are not success forecasts or quality judgments.
-- Keep external integrations bounded. Missing keys/research/voice have honest
-  states; do not silently fabricate a pack.
-- Keep secrets off prompts, exports, and media. Local use is the event default;
-  hosted BYOK requires the security release gates.
+## Sponsor and open-source story
 
-Gemma's harness supplies small evidence packs, schema checks, known evidence IDs,
-one repair attempt, and fixed handlers. It cannot decide to execute code, deploy,
-change the project profile, or publish. The human owns the final marketing claims.
+Gemma 4 powers bounded analysis and positioning through Google AI Studio. The visible default is `gemma-4-26b-a4b-it`, selected after live latency checks; 31B is configurable. Other providers are explicit choices, with exact account-catalog model IDs.
 
-## Demonstration and verification
+ElevenLabs provides live-verified narration and instrumental music. Brag's MIT storyboard/composition guidance is adapted with attribution; no upstream bundled media is used. DigitalOcean/Render credits can host Sudo Launch later once production storage, authentication, worker isolation and secure BYOK are implemented. Hosting users' projects is outside scope.
 
-PokeChess can remain one real example; it is not a product constraint or the only
-test input. Fixture-backed integration tests cover React/Vite, Next.js, Python CLI,
-README-first prototype, workspace, and library projects. Browser fixtures cover
-profile-to-pack flows for multiple generic repositories. Demonstrate a mentor's
-public repo by entering its URL
-or profile, providing an audience brief, and running the same pipeline.
+## Demo and verification
 
-Show the source/evidence limits and actual model metadata. A CLI demo is real
-terminal usage footage supplied by the owner; do not claim browser gameplay checks.
-Full live model/voice success still requires credentials and account access.
+The same pipeline handles web apps, server projects, Python tools, libraries, workspaces and README-first prototypes. Automation uses generic source fixtures; no PokeChess-only assumptions. A mentor's repo enters through the same URL/profile flow.
 
-Later: Agent-Reach research, stronger per-category marketing templates, additional
-launch asset formats, secure hosted BYOK, CLI/MCP. Deployment integrations,
-automatic code/issues previews, broad source repair, and social auto-posting are
-outside the current scope.
+Live Tolti analysis correctly identified the starter/prototype status and produced a valid two-story pack. ElevenLabs audio was mixed into a real 25s 1280×720 promo plus poster. OAuth/private ownership uses controlled integration responses until app registration. Browser tests cover three viewport sizes; they do not establish live inference.
 
-See [PRD](prd.md), [UI/UX](ui-ux.md), [model contract](model-harness.md),
-[security](deployment-and-security.md), and [local development](../development.md).
+Account tasks are collected in [todo.md](../../todo.md). Next product opportunities: richer Agent-Reach research, more specific marketing assets, stronger visual compositions, secure hosted use, then CLI/MCP.
+
+See [PRD](prd.md), [UI/UX](ui-ux.md), [model contract](model-harness.md), [security](deployment-and-security.md), and [setup](../development.md).

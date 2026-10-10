@@ -4,12 +4,20 @@ export async function api<T>(
   body?: unknown,
   method?: string,
 ): Promise<T> {
-  const response = await fetch(`/api${path}`, {
-    method: method || (body ? "POST" : "GET"),
-    credentials: "same-origin",
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`/api${path}`, {
+      signal: AbortSignal.timeout(15_000),
+      method: method || (body ? "POST" : "GET"),
+      credentials: "same-origin",
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new Error(
+      "Local API could not be reached. Start both services with npm run dev, then retry.",
+    );
+  }
   if (response.status === 204) return undefined as T;
   const data = await response.json().catch(() => ({
     error:

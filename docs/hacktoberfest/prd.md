@@ -6,8 +6,8 @@ repo-to-deployment specification preserved in checkpoint `dbd6d47`.
 ## Problem and promise
 
 Developers build projects but struggle to explain who needs them, show their
-value, and launch them publicly. Sudo Launch turns public GitHub source and an
-owner brief into an audience-specific, researched, reviewable launch pack.
+value, and launch them publicly. Sudo Launch turns public or consented private GitHub source and a
+confirmed owner brief into an audience-specific, researched, reviewable launch pack.
 
 Primary user: student/solo developer. Success: a useful project-specific angle,
 accurate drafts, a real usage demo when supplied, and a receipt tracing inputs and
@@ -20,7 +20,7 @@ Logical workflow: Discover → Understand → Position → Launch plan → optio
 Guided UI: Project brief → Launch story → Launch pack. Research feeds the story
 step; strategy and optional media belong in the pack.
 
-Any public root repo can enter, including apps, Python tools, libraries, workspaces,
+Any accessible root repo can enter, including apps, Python tools, libraries, workspaces,
 documentation, and prototypes. Bounded inspection can be incomplete; describe
 coverage rather than promise universal understanding. Deployment compatibility
 is not a gate for marketing eligibility.
@@ -33,22 +33,24 @@ product's own Node API handles source/model/voice operations. CLI/MCP is later.
 
 | Requirement | Acceptance |
 | --- | --- |
-| Profile discovery | Valid username returns bounded public metadata, exclusions, ranking reasons, and scope. User can select a repo and supply audience/goal. |
-| Repository entry | Direct public URL works independently of profile discovery or a specific owner's account. |
-| Owner brief | Required audience/goal, optional context; repository metadata does not satisfy these inputs. Owned brief edits preserve source and invalidate dependent generated outputs only when changed. |
+| Profile discovery | Valid username returns bounded public metadata, exclusions, ranking reasons, and scope. Connected discovery includes private repos; the owner selects one before analysis. |
+| Repository entry | Direct repository URL works independently of profile discovery or a specific owner's account. |
+| Owner brief | Model-suggested audience/goal/context and assumptions need explicit owner confirmation; manual entry is supported. Owned brief edits preserve source and invalidate dependent generated outputs only when changed. |
 | Source understanding | Commit-pinned README/manifests/entry files, typed evidence, no install/build execution. Missing deployment setup does not block marketing. |
 | Category coverage | Fixture-backed API runs accept Vite, Next.js, Python CLI, library, README-first prototype, and workspace. Unknown profile remains visible. |
 | Positioning | Selected model returns two schema-valid angles, each with its own audience, rationale, evidence IDs, posts, and narration. Unknown evidence/action fields are rejected. |
 | Research | Up to three relevant GitHub results plus three public supplied pages; sources/dates and query coverage retained. No results means uncertainty. |
 | Launch strategy | Audience/angle informs reviewed channel purposes, sharing timing, and a release checklist. Publishing remains developer-owned. |
-| Demo assets | Owner uploads real usage recording; FFprobe validates; optional approved ElevenLabs narration; fixed capped FFmpeg output. User-footage provenance remains explicit. |
+| Readiness | Source-based findings and a copyable coding-agent prompt; no runtime certification or automatic source edits. |
+| GitHub access | State + PKCE + callback nonce; private source needs consent and a session-specific token. Disconnect clears tokens/private jobs. |
+| Demo assets | Review a Brag-inspired 25s storyboard; source cards or uploaded footage; approved ElevenLabs voice/music; Chromium + FFmpeg MP4/poster; upstream Brag handoff export. |
 | Pack | Selected-angle drafts, generated assets, and actual-execution receipt downloadable. Model preference is distinct from actual use. |
 | Workspace | Three guided steps, one document scroll area, visible next actions, optional command panel; desktop/mobile/zoom checks pass. |
 | Secrets/ownership | No browser keys; owned jobs/assets; Origin checks; bounded public URL access; no secrets in prompts/exports. Hosted release needs additional security gates. |
 
 ## Input and output
 
-Input: public GitHub username or repo URL, intended audience/launch goal, explicit
+Input: public profile or connected repositories, repo URL, confirmed audience/launch goal, explicit
 model preference, optional supplied research pages, existing public URL, and usage
 recording. No cloud deployment token.
 
@@ -76,7 +78,7 @@ not a hosted multi-tenant release claim.
 
 React/TypeScript/Vite UI → local Node/Express controller → GitHub source/discovery,
 Google Gemma or Nebius/custom model, public research access, optional ElevenLabs,
-and local FFmpeg. Session-owned jobs/evidence/media remain in memory.
+and local Chromium/FFmpeg. Session-owned jobs/evidence/media remain in memory.
 
 The app may later be hosted on Render or DigitalOcean if suitable; that is hosting
 Sudo Launch itself, not integrating deployments of users' products. Sponsor credit
@@ -88,9 +90,10 @@ P0: broad source/discovery, clear onboarding, structured positioning/copy, launc
 strategy, evidence receipt, workspace fit. P1: stronger Agent-Reach research,
 reviewed voice/video polish, secure hosted BYOK. Later: CLI/MCP and more asset types.
 
-Currently source/discovery, local model adapters, launch strategy, uploaded-footage
-rendering, and receipt paths are implemented. Agent-Reach bridge and live provider
-access require further work/preflight. Do not report an unconfigured integration
+Repo-first analysis, readiness handoff, OAuth/private access, local model adapters,
+launch strategy, storyboard/audio/promo rendering and receipts are implemented.
+Gemma analysis/positioning and ElevenLabs voice/music passed live checks. OAuth app
+registration and Nebius configuration are deferred account tasks; Agent-Reach is pending. Do not report an unconfigured integration
 as working because a button or mock exists.
 
 ## Demonstration and checks

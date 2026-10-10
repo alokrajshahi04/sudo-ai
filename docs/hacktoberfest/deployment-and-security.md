@@ -6,8 +6,8 @@ is preserved in checkpoint `dbd6d47`. This filename remains for stable links.
 
 ## Current local boundaries
 
-Sudo Launch reads public source, discovers projects, researches, generates reviewed
-marketing drafts, and renders owner-uploaded media. It does not install/run an
+Sudo Launch reads public or explicitly consented private source, discovers projects, researches, generates reviewed
+marketing drafts, and renders escaped source visuals or owner-uploaded media. It does not install/run an
 input repository, preview its code/issues, provision services, collect deployment
 tokens, or publish social posts.
 
@@ -56,3 +56,13 @@ See [development](../development.md) and the
 [model contract](model-harness.md). Relevant guidance:
 [OWASP secrets management](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html),
 [OWASP SSRF prevention](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html).
+
+## GitHub connection and private source
+
+OAuth uses random state, PKCE S256 and a callback-only HttpOnly SameSite Lax nonce. The regular application cookie stays Strict; the callback restores its original owner only after validating state/nonce/active session and exchanging the code. State is single-use and expires in ten minutes. Provider tokens never enter responses or browser storage.
+
+GitHub OAuth `repo` permission is broad, including write access. Only read endpoints are used. A configured local fine-grained read-only token is connected explicitly to one session; there is no global authenticated fallback. Private reading and model transfer need consent. Public profile discovery stays public. Disconnect clears private jobs/artifacts and tokens, and blocks while operations are running.
+
+Secret files are excluded from source selection; common formats and exact configured keys are redacted. Arbitrary secret detection is incomplete, so the owner must still review excerpts and sharing. Private-project public research starts disabled and warns about query disclosure. Media/receipts/Brag handoffs may contain private source; downloads require the owning session and should be shared deliberately.
+
+The composition browser only renders escaped, app-generated SVG with scripts/network denied. It never navigates to input project pages. Brag integration is an adapted local renderer and upstream handoff, not execution of an unrestricted agent skill.

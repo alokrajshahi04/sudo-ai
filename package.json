@@ -11,11 +11,13 @@
     "dev:web": "vite --host 127.0.0.1",
     "start": "tsx --env-file-if-exists=.env server/index.ts",
     "test": "tsx --test tests/*.test.ts",
-    "test:ui": "playwright test"
+    "test:ui": "playwright test",
+    "setup:browser": "playwright install chromium"
   },
   "dependencies": {
     "express": "^5.1.0",
     "ipaddr.js": "^2.2.0",
+    "playwright": "^1.64.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^3.24.2"

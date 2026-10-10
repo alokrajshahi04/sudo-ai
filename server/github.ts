@@ -25,7 +25,7 @@ export function parseRepo(value: string) {
   )
     throw new AppError(
       400,
-      "Use a public GitHub repository URL without a branch or query.",
+      "Use a GitHub repository URL without a branch or query.",
     );
   const [owner, raw] = url.pathname.slice(1).split("/");
   const repo = raw.replace(/\.git$/, "");
@@ -40,14 +40,12 @@ export function parseRepo(value: string) {
     throw new AppError(400, "Invalid repository path.");
   return { owner, repo, canonical: `https://github.com/${owner}/${repo}` };
 }
-export async function github(path: string): Promise<any> {
+export async function github(path: string, token?: string): Promise<any> {
   const response = await fetch(`https://api.github.com${path}`, {
     headers: {
       Accept: "application/vnd.github+json",
       "User-Agent": "SudoLaunch/0.1",
-      ...(process.env.GITHUB_TOKEN
-        ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
-        : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     signal: AbortSignal.timeout(15_000),
     redirect: "error",
@@ -56,7 +54,7 @@ export async function github(path: string): Promise<any> {
     throw new AppError(
       response.status === 404 ? 404 : 502,
       response.status === 404
-        ? "Public repository or source file not found."
+        ? "Repository or source not found, or your connection lacks access."
         : response.status === 403 || response.status === 429
           ? "GitHub rate limit or access restriction. Retry later or configure a local GitHub token."
           : "GitHub source request failed.",
@@ -161,17 +159,29 @@ export function classify(
     warnings,
   };
 }
-export async function inspect(repository: string): Promise<Inspection> {
+export async function inspect(
+  repository: string,
+  token?: string,
+  privateConsent = false,
+  progress: (step: string) => void = () => {},
+): Promise<Inspection> {
   const { owner, repo, canonical } = parseRepo(repository);
   const root = `/repos/${owner}/${repo}`;
-  const meta = await github(root);
-  if (meta.private)
-    throw new AppError(400, "Only public repositories are supported.");
+  progress("Reading repository metadata");
+  const meta = await github(root, token);
+  if (meta.private && (!token || !privateConsent))
+    throw new AppError(
+      409,
+      "Connect GitHub and approve private-source analysis before reading this private repository.",
+    );
+  progress("Pinning source revision");
   const commit = await github(
     `${root}/commits/${encodeURIComponent(meta.default_branch)}`,
+    token,
   );
   const revision = commit.sha as string;
-  const tree = await github(`${root}/git/trees/${revision}?recursive=1`);
+  progress("Reading the file tree");
+  const tree = await github(`${root}/git/trees/${revision}?recursive=1`, token);
   if (tree.truncated)
     throw new AppError(
       422,
@@ -179,12 +189,18 @@ export async function inspect(repository: string): Promise<Inspection> {
     );
   const entries = (
     tree.tree as { path: string; type: string; size: number }[]
-  ).filter((f) => f.type === "blob" && f.size <= 70_000);
+  ).filter(
+    (f) =>
+      f.type === "blob" &&
+      f.size <= 70_000 &&
+      !/(?:^|\/)(?:\.env|credentials|secrets)(?:[./]|$)/i.test(f.path),
+  );
   const preferred = [
     "README.md",
     "readme.md",
     "README.rst",
     "README.txt",
+    "LICENSE",
     "package.json",
     "pyproject.toml",
     "requirements.txt",
@@ -221,9 +237,11 @@ export async function inspect(repository: string): Promise<Inspection> {
     .slice(0, 2)
     .map((f) => f.path);
   const files: Record<string, string> = {};
-  for (const name of [...names, ...extras].slice(0, 10)) {
+  for (const name of [...names, ...extras].slice(0, 12)) {
+    progress(`Reading ${name}`);
     const data = await github(
       `${root}/contents/${name.split("/").map(encodeURIComponent).join("/")}?ref=${revision}`,
+      token,
     );
     if (data.type === "file" && data.encoding === "base64")
       files[name] = redact(
@@ -253,6 +271,16 @@ export async function inspect(repository: string): Promise<Inspection> {
   });
   return {
     revision,
+    private: !!meta.private,
+    treePaths: entries
+      .map((f) => f.path)
+      .filter(
+        (path) =>
+          !/(?:^|\/)(?:\.env|node_modules|\.git|credentials|secrets)(?:[./]|$)/i.test(
+            path,
+          ),
+      )
+      .slice(0, 3000),
     branch: meta.default_branch,
     ...classify(files),
     files: Object.keys(files),
@@ -265,10 +293,17 @@ export async function inspect(repository: string): Promise<Inspection> {
   };
 }
 
-export function rankProjects(items: any[]): ProjectCandidate[] {
+export function rankProjects(
+  items: any[],
+  includePrivate = false,
+): ProjectCandidate[] {
   return items
     .filter(
-      (item) => !item.private && !item.fork && !item.archived && item.size > 0,
+      (item) =>
+        (includePrivate || !item.private) &&
+        !item.fork &&
+        !item.archived &&
+        item.size > 0,
     )
     .map((item) => {
       const description = redact(String(item.description || "")).slice(0, 600);
@@ -295,6 +330,7 @@ export function rankProjects(items: any[]): ProjectCandidate[] {
         reasons.push("Updated in the last 90 days");
       }
       return {
+        private: !!item.private,
         name: item.name,
         repository: `https://github.com/${item.full_name}`,
         description,
@@ -329,5 +365,24 @@ export async function discoverProfile(
     checkedAt: new Date().toISOString(),
     coverage:
       "Up to 100 recently pushed public owned repositories; up to 30 non-fork, non-archived, non-empty projects shown. Ranking is metadata-based, not a judgment of product quality, readiness, or originality.",
+  };
+}
+
+export async function discoverConnected(
+  token: string,
+  login: string,
+): Promise<ProfileDiscovery> {
+  const items = await github(
+    "/user/repos?type=all&sort=pushed&per_page=100",
+    token,
+  );
+  if (!Array.isArray(items))
+    throw new AppError(502, "GitHub returned an unexpected repository list.");
+  return {
+    username: login,
+    projects: rankProjects(items, true).slice(0, 30),
+    checkedAt: new Date().toISOString(),
+    coverage:
+      "Up to 100 recently pushed repositories accessible to your connection, including private projects; up to 30 non-fork, non-archived, non-empty projects shown. Source is read only after you choose a project and approve private analysis.",
   };
 }

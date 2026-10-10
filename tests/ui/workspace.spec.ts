@@ -21,6 +21,8 @@ function fixture(
     phases: Object.fromEntries(
       [
         "inspect",
+        "analyze",
+        "music",
         "research",
         "position",
         "verify",
@@ -87,20 +89,29 @@ async function mockApi(
     restored?: Job;
     failResearch?: boolean;
     failPosition?: boolean;
+    showWelcome?: boolean;
+    media?: boolean;
+    apiOffline?: boolean;
   } = {},
 ) {
+  if (!options.showWelcome)
+    await page.addInitScript(() =>
+      localStorage.setItem("sudo-welcome-v1", "seen"),
+    );
   let job = options.restored ? structuredClone(options.restored) : fixture();
   let created = !!options.restored;
   const calls: string[] = [];
   const controls = {
     failResearch: !!options.failResearch,
     failPosition: !!options.failPosition,
+    apiOffline: !!options.apiOffline,
   };
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     const method = route.request().method();
     if (method === "POST") calls.push(path.split("/").pop()!);
     let data: unknown;
+    if (controls.apiOffline && (path.endsWith("/capabilities") || path.endsWith("/discover"))) { await route.fulfill({ status: 503, json: { error: "Local API is unavailable. Start npm run dev and retry." } }); return; }
     if (path.endsWith("/capabilities"))
       data = {
         mode: "local",
@@ -111,8 +122,15 @@ async function mockApi(
             configured: options.configured ?? true,
           },
         ],
-        narration: false,
-        render: false,
+        githubAuth: {
+          configured: false,
+          connected: false,
+          localTokenAvailable: false,
+        },
+        narration: !!options.media,
+        render: !!options.media,
+        promo: !!options.media,
+        music: !!options.media,
         hostedCredentialEntry: false,
         research: "public",
       };
@@ -153,7 +171,25 @@ async function mockApi(
           name === "release-cli" ? "python_cli" : "documentation",
         );
         job.launchBrief = body.launchBrief;
-        job.brief = body.brief;
+        job.brief = body.brief || "";
+        if (options.configured ?? true) {
+          job.analysis = {
+            summary:
+              "A community coordination project described by its source.",
+            suggestedBrief: {
+              audience: "Open-source maintainers",
+              goal: "Find five testers",
+              context: "",
+            },
+            assumptions: ["Audience and goal are suggestions; confirm them."],
+            evidenceIds: ["source-readme"],
+            provider: "google",
+            model: "fixture-model",
+            generatedAt: new Date().toISOString(),
+          };
+          job.phases.analyze = { state: "completed" };
+        }
+        job.repoFirst = true;
         created = true;
         data = job;
       } else data = created ? [job] : [];
@@ -182,6 +218,52 @@ async function mockApi(
     } else if (method === "POST" && path.endsWith("/angle")) {
       job.selectedAngle = route.request().postDataJSON().index;
       job.launchStrategy = undefined;
+      data = job;
+    } else if (method === "POST" && path.endsWith("/storyboard")) {
+      job.storyboard = {
+        duration: 25,
+        scenes: [
+          {
+            label: "THE HOOK",
+            heading: "Bring community work together",
+            detail: "For maintainers",
+            seconds: 3,
+          },
+          {
+            label: "MEET THE PROJECT",
+            heading: job.name,
+            detail: "A source-based project",
+            seconds: 5,
+          },
+          {
+            label: "FROM THE SOURCE",
+            heading: "README.md",
+            detail: "Actual source excerpt",
+            seconds: 12,
+          },
+          {
+            label: "YOUR NEXT STEP",
+            heading: "Find five testers",
+            detail: job.repository,
+            seconds: 5,
+          },
+        ],
+        sourceVisual: {
+          file: "README.md",
+          excerpt: "Documented project capabilities.",
+        },
+        cta: job.repository,
+        workflow: "Brag-inspired",
+      };
+      data = job;
+    } else if (method === "POST" && path.endsWith("/promo")) {
+      job.phases.render = { state: "running" };
+      data = job;
+    } else if (method === "POST" && path.endsWith("/music")) {
+      job.phases.music = {
+        state: "failed",
+        error: "Music access is unavailable for this key.",
+      };
       data = job;
     } else if (method === "POST" && path.endsWith("/strategy")) {
       job.launchStrategy = {
@@ -222,6 +304,21 @@ async function mockApi(
           : { state: "completed" };
         if (!controls.failPosition) job.positioning = positioning();
       }
+      if (job.phases.render.state === "running") {
+        job.phases.render = { state: "completed" };
+        job.artifacts = [
+          {
+            type: "video",
+            url: "/fixture-video.mp4",
+            provenance: "Fixture source-card render; no runtime verification.",
+          },
+          {
+            type: "poster",
+            url: "/fixture-poster.png",
+            provenance: "Fixture poster.",
+          },
+        ];
+      }
       data = job;
     }
     await route.fulfill({ json: data });
@@ -230,15 +327,18 @@ async function mockApi(
 }
 async function fillBrief(page: Page, repository: string) {
   const dialog = page.getByRole("dialog", { name: "New launch" });
-  await dialog.getByLabel("Public GitHub repository").fill(repository);
-  await dialog.getByLabel("Who is it for?").fill("Open-source maintainers");
   await dialog
+    .getByLabel("GitHub repository", { exact: true })
+    .fill(repository);
+  await dialog.getByRole("button", { name: "Read my project →" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Let’s understand your project." }),
+  ).toBeVisible();
+  // Editable confirmation remains available even when no model is configured.
+  await page.getByLabel("Who is it for?").fill("Open-source maintainers");
+  await page
     .getByLabel("What should this launch achieve?")
     .fill("Find five testers");
-  await dialog.getByRole("button", { name: "Create project brief →" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Who are we launching this for?" }),
-  ).toBeVisible();
 }
 async function assertWorkspaceFits(page: Page) {
   const layout = await page.evaluate(() => {
@@ -275,13 +375,11 @@ for (const name of ["community-tool", "release-cli"]) {
       await candidate
         .getByRole("button", { name: "Prepare this project’s launch →" })
         .click();
-      await expect(page.getByLabel("Who is it for?")).toHaveValue("");
       await expect(
-        page.getByLabel("What should this launch achieve?"),
-      ).toHaveValue("");
-      await page
-        .getByRole("button", { name: "Create project brief →" })
-        .click();
+        page
+          .getByRole("dialog", { name: "New launch" })
+          .getByLabel("GitHub repository", { exact: true }),
+      ).toHaveValue(fixture(name).repository);
       expect(backend.calls).not.toContain("jobs");
       await fillBrief(page, fixture(name).repository);
       await assertWorkspaceFits(page);
@@ -349,9 +447,7 @@ for (const name of ["community-tool", "release-cli"]) {
       expect(kit).toContain("- [ ] Review every claim");
       expect(kit).toContain("source-readme: README.md");
       expect(kit).toContain("Model: google / fixture-model");
-      await page
-        .getByText("Add a demo video or voiceover", { exact: true })
-        .click();
+      await page.getByText("Create a launch video", { exact: true }).click();
       await expect(page.getByLabel("Upload recording")).toBeVisible();
       await assertWorkspaceFits(page);
     },
@@ -527,4 +623,152 @@ test("source failure explains the blocked action and retries without model spend
   await expect(
     page.getByRole("combobox", { name: "Launch command" }),
   ).toHaveCount(0);
+});
+
+test("first-visit guide explains the product and slash shortcut, then stays dismissed", async ({
+  page,
+}, testInfo) => {
+  await mockApi(page, { showWelcome: true });
+  await page.goto("/");
+  const welcome = page.getByRole("dialog", { name: "Welcome to Sudo Launch" });
+  await expect(welcome).toBeVisible();
+  await expect(welcome).toContainText("reads your GitHub project");
+  await expect(welcome).toContainText("open commands");
+  await page.screenshot({ path: testInfo.outputPath("welcome.png") });
+  await welcome.getByRole("button", { name: "Explore first →" }).click();
+  await page.reload();
+  await expect(welcome).not.toBeVisible();
+  await page.keyboard.press("/");
+  await expect(
+    page.getByRole("combobox", { name: "Launch command" }),
+  ).toBeVisible();
+});
+test("repo-first model suggestions are editable and require owner confirmation", async ({
+  page,
+}) => {
+  const backend = await mockApi(page);
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "or start with a repository →" })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "New launch" });
+  await expect(dialog.getByLabel("Who is it for?")).toHaveCount(0);
+  await dialog
+    .getByLabel("GitHub repository", { exact: true })
+    .fill(fixture().repository);
+  await dialog.getByRole("button", { name: "Read my project →" }).click();
+  await expect(page.getByLabel("Who is it for?")).toHaveValue(
+    "Open-source maintainers",
+  );
+  expect(backend.getJob().launchBrief).toBeUndefined();
+  await expect(
+    page.getByRole("navigation").getByRole("button", { name: /Launch story/ }),
+  ).toBeDisabled();
+  await page.getByLabel("Who is it for?").fill("New contributors");
+  await page
+    .getByRole("button", { name: "Continue to launch stories →" })
+    .click();
+  expect(backend.getJob().launchBrief?.audience).toBe("New contributors");
+});
+test("readiness gives a portable coding-agent handoff with source references", async ({
+  page,
+}, testInfo) => {
+  const job = fixture();
+  job.readiness = {
+    coverage: "Selected source, runtime not executed.",
+    findings: [
+      {
+        id: "setup",
+        severity: "action",
+        title: "Make setup reproducible",
+        detail: "Review the README quickstart before publishing.",
+        files: ["README.md"],
+        evidenceIds: ["source-readme"],
+      },
+    ],
+    agentPrompt:
+      "Review README.md at " +
+      job.inspection!.revision +
+      ". Confirm findings before fixing. Never claim tests passed unless run.",
+  };
+  await mockApi(page, { restored: job });
+  await page.goto("/");
+  await page
+    .getByText("Inspect the findings & one-shot fix prompt", { exact: true })
+    .click();
+  await expect(page.getByLabel("Paste into your coding agent")).toHaveValue(
+    job.readiness.agentPrompt,
+  );
+  await expect(
+    page.getByText("Make setup reproducible", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Copy one-shot fix prompt →" })
+    .click();
+  await page.screenshot({ path: testInfo.outputPath("readiness-handoff.png") });
+});
+test("promo storyboard gates rendering; music failure preserves the text pack", async ({
+  page,
+}, testInfo) => {
+  const job = fixture();
+  job.positioning = positioning();
+  job.launchStrategy = {
+    launchType: "showcase",
+    angleTitle: "Bring community work together",
+    checklist: [],
+    channels: [],
+    createdAt: new Date().toISOString(),
+  };
+  const backend = await mockApi(page, { restored: job, media: true });
+  await page.route("**/fixture-video.mp4", (route) => route.abort());
+  await page.goto("/");
+  await page.getByText("Create a launch video", { exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Render launch promo →" }),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Prepare video storyboard →" })
+    .click();
+  await expect(page.getByLabel("Video storyboard")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Generate music bed →" }),
+  ).toBeDisabled();
+  await page
+    .getByText(
+      "I approve sending this prompt to ElevenLabs and using my music quota.",
+      { exact: true },
+    )
+    .click();
+  await page.getByRole("button", { name: "Generate music bed →" }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Music access is unavailable",
+  );
+  await expect(
+    page.getByText("LinkedIn draft for story 1", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Render launch promo →" }).click();
+  await expect(
+    page.getByRole("link", { name: "Download video ↓" }),
+  ).toBeVisible();
+  expect(backend.calls).toContain("promo");
+  await page.screenshot({ path: testInfo.outputPath("promo-studio.png") });
+});
+
+test("API outage is explained in discovery and recovers without reloading or GitHub sign-in", async ({ page }, testInfo) => {
+  const backend = await mockApi(page, { apiOffline: true });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Find my projects ↗" }).click();
+  await expect(page.locator(".api-connection-warning")).toContainText("does not need GitHub sign-in");
+  await page.getByLabel("GitHub username").fill("developer");
+  const discover = page.getByRole("button", { name: "Find projects →", exact: true });
+  await expect(discover).toBeEnabled();
+  await discover.click();
+  await expect(page.getByRole("alert")).toContainText("Local API is unavailable");
+  await page.screenshot({ path: testInfo.outputPath("api-offline-discovery.png") });
+  backend.controls.apiOffline = false;
+  await page.getByRole("button", { name: "Retry API connection" }).click();
+  await expect(page.locator(".api-connection-warning")).toHaveCount(0);
+  await expect(page.getByLabel("GitHub username")).toHaveValue("developer");
+  await discover.click();
+  await expect(page.getByRole("heading", { name: "community-tool", exact: true })).toBeVisible();
 });

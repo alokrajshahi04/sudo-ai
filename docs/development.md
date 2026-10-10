@@ -1,158 +1,85 @@
 # Local development
 
-Updated 2026-10-10. The frontend is connected to a real local Node API. Public
-hosting and browser key entry remain disabled. Target deployments, automatic
-code previews, and automatic capture are outside the current scope. This is a local development application, not a completed
-hosted service.
+Sudo Launch is a repo-first product marketing app: source review → confirmed brief → two launch stories → downloadable pack. This build runs on localhost; public hosting and browser credential entry are not enabled.
 
 ## Start
 
-Requires Node.js 22, npm, and FFmpeg/ffprobe for media operations.
+Requires Node.js 22 and npm. Install FFmpeg/ffprobe for media and Chromium for the source-card promo renderer.
 
 ```bash
 npm install
-cp .env.example .env  # only if you do not already have .env
+cp .env.example .env  # only if .env does not already exist
+npm run setup:browser
 npm run dev
 ```
 
-Frontend: http://localhost:5173. The Node API binds to `127.0.0.1:3001`; Vite
-proxies `/api`. Both run under one dev command. `npm run build` type-checks
-frontend/backend/shared types and builds the frontend. `npm start` serves the
-built frontend and API locally on port 3001. `npm test` runs bounded-controller,
-network-policy, schema, ownership, and actual FFmpeg integration checks.
+Open http://localhost:5173. Vite proxies `/api` to the loopback Node API on port 3001. `npm run build` checks TypeScript and builds the frontend; `npm start` serves the built UI and API locally. An existing Chromium can be selected with `PLAYWRIGHT_CHROMIUM_PATH`.
 
-Both services bind to loopback. Do not expose them publicly through a tunnel;
-public credential/worker-isolation gates have not been completed.
+## Credentials and GitHub
 
-## Configuration
-
-Set keys in `.env` on your machine, then restart `npm run dev`. Never paste them
-in the command bar or commit them. `.env` is ignored; `.env.example` is placeholders.
-The browser displays configuration availability, never keys. Configured means
-values exist, not that account access has passed a provider request.
+Set keys in ignored `.env`, then restart the API. Keys never belong in the command bar, browser storage, or commits. Configuration availability is not proof of account access.
 
 | Variables | Use |
 | --- | --- |
-| `GITHUB_TOKEN` | Optional server-side GitHub access to improve public API rate limits. Use a read-only token and do not enable private-repo workflows. |
-| `GOOGLE_API_KEY`, `GOOGLE_MODEL` | Native Gemini API text generation with Gemma. Default documented ID: `gemma-4-31b-it`; actual access/quota is checked on use. |
-| `NEBIUS_API_KEY`, `NEBIUS_MODEL` | Nebius Token Factory inference. Copy the exact model ID from your account catalog; GLM-5.3-Flash availability is not assumed. |
-| `CUSTOM_MODEL_BASE_URL`, `CUSTOM_MODEL_API_KEY`, `CUSTOM_MODEL_ID` | Locally configured OpenAI-compatible API, including a local endpoint. Base URL excludes `/chat/completions`; requires a key value even for a local server expecting a placeholder. |
-| `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` | Optional reviewed narration using the configured existing voice. No voice cloning. |
-| `PORT` | Local API port, default 3001. Keep default for the existing Vite proxy. |
+| `GOOGLE_API_KEY`, `GOOGLE_MODEL` | Google AI Studio inference. Default `gemma-4-26b-a4b-it`, chosen after faster live responses than `gemma-4-31b-it`; either exact ID can be configured. |
+| `NEBIUS_API_KEY`, `NEBIUS_MODEL` | Exact model ID from your Nebius catalog; the requested GLM model's availability/license are not assumed. |
+| `CUSTOM_MODEL_BASE_URL`, `CUSTOM_MODEL_API_KEY`, `CUSTOM_MODEL_ID` | Locally configured compatible chat-completions endpoint. Base excludes `/chat/completions`; even a local server needs a placeholder key value. |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | OAuth app, callback `http://localhost:5173/api/auth/github/callback`. Use that origin for sign-in, or register the exact origin you run. Setup tasks are in [todo.md](../todo.md). |
+| `GITHUB_TOKEN` | Optional fine-grained token with read-only Contents/Metadata on selected repos. Explicitly connect it in Settings; it is never applied automatically to other sessions. |
+| `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` | Reviewed narration with an existing voice; music uses the same key and separate API permissions/quota. No voice cloning. |
+| `PLAYWRIGHT_CHROMIUM_PATH` | Optional existing Chromium executable. |
+| `PORT` | API port, default 3001; keep this for the existing Vite proxy. |
 
-No deployment provider or token is used. Sudo Launch prepares marketing and a
-developer-owned publishing checklist. Keys remain in the local process environment
-until it exits. Cloud APIs receive relevant submitted source/narration inputs.
-Redaction catches common secret patterns; it cannot guarantee arbitrary public
-source cannot contain a secret.
+OAuth uses GitHub's broad `repo` scope, including write permission, although this app only reads. Prefer a selected-repo read-only token locally; a GitHub App is the future hosted approach. Tokens remain in server memory, belong to one session, and are removed on disconnect/expiry/restart. Disconnect also clears already-inspected private jobs. OAuth state, PKCE S256, and a callback-only HttpOnly SameSite Lax nonce bind the callback to the original Strict session.
 
-## Product marketing workflow
+Public profile discovery reads up to 100 recent public owned repos. Connected discovery reads up to 100 accessible public/private repos. Each shortlists up to 30 non-fork, non-archived, non-empty projects. Ranking explains metadata signals; it is not a product-quality score.
 
-1. **Discover:** scan a public GitHub username or paste a direct repo. Discovery
-   looks at up to 100 recent public owned repos and shortlists up to 30 non-fork,
-   non-archived, non-empty candidates with metadata-based reasons. The owner
-   chooses a project and supplies audience/goal; no automatic batch spending.
-2. **Understand:** read metadata, pinned commit/tree, and at most ten bounded
-   README/manifest/entry files. No repository scripts execute. Vite, Next.js,
-   Python tools, libraries, workspaces, documentation, and unknown profiles are
-   all eligible for marketing; incomplete coverage stays visible.
-3. **Position:** collect bounded GitHub search results and up to three supplied
-   public pages; select an explicitly configured model and generate two angles,
-   each with its own LinkedIn/X drafts and narration. Validate schema/evidence.
-   Current research is not yet Agent-Reach/social search.
-4. **Launch plan:** review sharing channels, timing, and the release checklist.
-   Developer handles publishing/distribution; no Vercel/DigitalOcean integration.
-   Optional existing-URL HTTP check does not establish feature behavior.
-5. **Demo:** upload MP4/WebM footage, 3–120s and ≤30 MB. FFprobe validates; optional
-   approved ElevenLabs narration and fixed FFmpeg render produce up to 30s of
-   landscape MP4. Silent output works. Caption overlays are pending. No automatic
-   code preview or capture; owner footage keeps that provenance.
-6. **Pack:** review/copy posts, download media and the actual-execution receipt.
-   Sharing happens manually. Unknown features/launch status remain explicit.
+## Workflow
 
-Missing model keys do not block source reading, strategy, or media rendering.
-Missing FFmpeg disables media operations. The guided pack requires a generated
-story; the lower-level strategy API can still prepare a checklist without a model.
-The app has no fictional sample workflow. Jobs are session-owned and in memory,
-not stored in browser localStorage.
+1. Paste a repository or choose one from discovery. Selected private files require explicit approval for source reading and model transfer. No code is executed.
+2. Read an immutable commit/tree and up to 12 bounded README/manifest/entry files. Secret-file paths are excluded and common tokens are redacted. Coverage remains partial.
+3. Review deterministic source-readiness tasks and a copyable coding-agent handoff. Findings are not runtime certification; the coding agent must confirm them before fixing anything.
+4. The chosen model suggests a product summary, audience, goal, context and assumptions. These do **not** become a confirmed brief automatically. Edit and confirm them. Without a configured model, source review and manual brief entry still work.
+5. Generate two stories with evidence IDs, LinkedIn/X drafts and narration. Optional bounded GitHub/link research runs first and stops the sequence on failure. Private projects default to research disabled; queries are public and must not contain private details. Agent-Reach/social search is pending.
+6. Choose a story, prepare the sharing plan and download the Markdown kit/JSON receipt. Review and publish yourself.
+7. Optionally review a 25-second storyboard, generate approved ElevenLabs voice/music, then render source cards or uploaded footage (MP4/WebM, 3–120s, ≤30 MB). Download MP4 and PNG poster. Narration longer than the storyboard is rejected with a shorten-script instruction, rather than silently cut.
 
-## API and ownership
+The renderer adapts [Brag](https://github.com/latent-spaces/brag)'s inspect/plan/compose/deliver structure, scene timing, readable holds and source provenance. It uses Chromium + FFmpeg, **not upstream Hyperframes**. A Markdown storyboard handoff is exported for the upstream Brag skill. No upstream bundled music/SFX are included; see [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md). Source-card videos do not demonstrate working product interactions.
+
+## API
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/capabilities` | Configuration booleans/model IDs and implemented capability limits. |
-| `POST /api/discover` | Scan bounded public GitHub profile metadata. |
-| `GET/POST /api/jobs` | List owned jobs / create and inspect. |
-| `GET/DELETE /api/jobs/:id` | Read / delete owned idle job and media. |
-| `POST /api/jobs/:id/brief` | Correct structured audience/goal/context; invalidate dependent generated output when changed. |
-| `POST /api/jobs/:id/inspect` | Reinspect immutable source and invalidate stale outcomes. |
-| `POST /api/jobs/:id/research` | Query plus up to three public links. |
-| `POST /api/jobs/:id/position` | Selected model generation, schema-validated. |
-| `POST /api/jobs/:id/angle` | Choose angle; invalidate dependent voice/video on change. |
-| `POST /api/jobs/:id/strategy` | Selected-angle channel/release marketing checklist. |
-| `POST /api/jobs/:id/verify` | Public HTTPS reachability/title check. |
-| `POST /api/jobs/:id/recording` | Raw MP4/WebM upload and validation. |
-| `POST /api/jobs/:id/narrate` | Reviewed text with `approved: true`; optional ElevenLabs call. |
-| `POST /api/jobs/:id/render` | Fixed FFmpeg pipeline with optional voice. |
-| `GET /api/jobs/:id/assets/:type` | Owned recording/audio/video bytes. |
-| `GET /api/jobs/:id/receipt` | JSON actual-execution receipt. |
+| `GET /api/capabilities` | Model IDs/configuration, media availability, GitHub connection status; never keys. |
+| `POST /api/auth/github/start`, `GET /api/auth/github/callback` | Stateful PKCE OAuth sign-in. |
+| `POST /api/auth/github/local`, `/disconnect` | Explicit local-token connection / disconnect and private-source cleanup. |
+| `GET /api/auth/github/status` | Session connection status. |
+| `POST /api/discover`, `/api/discover/connected` | Public profile / connected private-inclusive shortlist. |
+| `GET/POST /api/jobs` | Owned list / create with repository, model and optional private consent. Legacy briefs still accepted. |
+| `GET/DELETE /api/jobs/:id` | Read/delete owned idle job and media. |
+| `POST /api/jobs/:id/inspect`, `/analyze`, `/brief` | Refresh source, request model suggestions, confirm/edit structured brief. |
+| `POST /api/jobs/:id/research`, `/position`, `/angle`, `/strategy` | Research, two stories, story selection, sharing plan. |
+| `POST /api/jobs/:id/verify` | Optional public HTTPS reachability/title; no feature verification. |
+| `POST /api/jobs/:id/recording`, `/narrate`, `/music` | Validated upload / explicitly approved paid audio. |
+| `POST /api/jobs/:id/storyboard`, `/promo` | Reviewable storyboard / bounded 25s composition. |
+| `GET /api/jobs/:id/brag` | Upstream Brag handoff Markdown. |
+| `POST /api/jobs/:id/render` | Recording-only render, up to 30s, optional voice. |
+| `GET /api/jobs/:id/assets/:type`, `/receipt` | Owned media / actual-execution receipt. |
 
-Jobs/media are in memory for up to one hour, cleared on restart or explicit
-job deletion. The frontend restores the latest session-owned job on refresh.
-Cookies are HttpOnly and SameSite Strict. Mutations require the local app's
-Origin. Each job/receipt/asset enforces session ownership. Bounds: five jobs per
-session, 30 jobs total, three concurrent operations, 200 MB retained media, and
-30 mutations/minute/session. These are local resource controls, not production
-multi-tenant security claims.
+## Local boundaries
 
-Public page checks allow only HTTPS/443, validate all resolved addresses, pin
-DNS to a validated address while preserving TLS hostname verification, and
-revalidate redirects. Private/reserved IPv4/IPv6 destinations are blocked. No
-browser/subresource execution occurs in these checks. There is no automatic browser capture or preview feature.
+Jobs/media expire after one hour and disappear on restart/deletion. Five jobs/session, 30 jobs total, three concurrent operations, 200 MB retained media, 30 mutations/minute/session. The UI resumes owned jobs after refresh; only the first-visit hint flag uses localStorage.
 
-FFmpeg runs locally with fixed arguments, no shell, capped duration, restricted
-input containers/protocols, and disposable temporary files. It is not an isolated
-hosted worker; do not accept arbitrary public uploads until sandboxing is built.
+Host/Origin checks and HttpOnly Strict cookies protect local requests. Public page checks enforce HTTPS/443, reject private/reserved IPs, pin validated DNS and revalidate redirects. Source/pages/model output are untrusted data and cannot authorize tools. Model JSON/evidence validation permits one targeted repair, then fails visibly with no provider fallback.
 
-## Current verification
+The composition browser renders only escaped, app-generated SVG, denies scripts/network requests, and never opens the input project. FFmpeg uses fixed arguments, no shell, format/protocol limits and disposable files. These are local safeguards, not isolated public workers. Hosted BYOK still needs the security work in [security](hacktoberfest/deployment-and-security.md); do not expose this local build as a public credential service.
 
-`npm test` includes cross-session job/receipt/asset denial, mutation Origin denial,
-missing-provider failure, source revision/provenance, public IP policy, invalid
-model evidence/actions, actual recording/render, and honest receipt statuses.
-Source fixture/API checks cover Vite, Next.js, Python CLI, README-first prototype,
-workspace, and library. Profile filtering/ranking is tested independently.
+## Verification
 
-Fixtures are not PokeChess code. Earlier PokeChess checks were one real smoke test;
-that repo is not hardcoded in production or the walkthrough. Paid model/voice
-success requires credentials and is not implied by the fixtures.
+`npm test` covers six source categories, ownership, origin policy, private-source consent and secret-file exclusion, OAuth state/nonce/PKCE and callback session restoration, bounded model schemas, SSRF policy, source-readiness handoffs, and real media rendering. Promo tests skip only when FFmpeg/Chromium are unavailable. Set `PLAYWRIGHT_CHROMIUM_PATH` for an existing browser.
 
+`npm run test:ui` checks repo-first suggestion/confirmation, onboarding/shortcuts, two generic profile-to-pack flows, missing setup, errors/retries, correction/resume, export content, readiness handoff and storyboard/audio gates at 1440×900, 1280×720 and 390×844. Screenshots/traces are ignored under `test-results/`. Browser fixtures verify UX, not live inference.
 
-Current verification after the marketing update: production build and 13 automated
-tests passed; real profile discovery returned 23 eligible projects from the
-participant's public account. A real Tolti Next.js repository passed source
-inspection and launch-strategy preparation. Desktop/mobile browser checks passed
-the previous workspace. The guided flow is verified below.
-No live model/voice success is claimed without credentials.
+Live checks on 2026-10-10: both Gemma 4 variants responded; the 26B A4B model produced a Tolti summary and valid two-story pack that described its starter/prototype status. ElevenLabs TTS and 25s instrumental music returned real audio; these were mixed into a verified 25s 1280×720 MP4 and PNG poster. OAuth uses controlled integration responses until the participant creates the OAuth app; Nebius remains unconfigured.
 
-### Guided workflow verification
-
-The app groups discovery/source/research/positioning/strategy/media into Project
-brief → Launch story → Launch pack. Commands are optional. Required audience and
-goal prevent incomplete discovery prefills from passing as briefs. Owned
-POST /api/jobs/:id/brief accepts audience, goal and optional context;
-it preserves source and clears dependent outputs on a meaningful edit.
-Job creation optionally accepts the same structured launchBrief; the older
-brief input remains supported by the API, but legacy UI jobs require explicit
-audience/goal correction.
-
-One user action sequences optional research then positioning, waiting for actual
-phase completion and stopping on failure. Choosing a story prepares its strategy
-and opens a pack with drafts, Markdown export, receipt and optional media.
-No source/model/voice operation is simulated in production.
-
-Run npm run test:ui after installing Playwright Chromium. Browser fixtures
-exercise multiple profile-to-pack journeys, direct entry, setup states, failures,
-correction/resume, export content and keyboard shortcuts at three viewport sizes.
-Screenshots/traces go to ignored test-results/. Set
-PLAYWRIGHT_CHROMIUM_PATH to use an existing executable.
-Fixture outputs do not prove live model/voice access.
+Public discovery was also verified through the live browser for `alokrajshahi04` (23 eligible projects, no JavaScript errors). API-outage recovery is covered at all three viewport sizes.

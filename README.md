@@ -19,7 +19,7 @@ Developers review and publish the result themselves.
 
 Its [overview](docs/hacktoberfest/ideation.md), [PRD](docs/hacktoberfest/prd.md),
 and [UI/UX spec](docs/hacktoberfest/ui-ux.md) define the current scope. The local
-frontend/backend support multiple public project types, including web apps,
+frontend/backend support public and consented private repositories across multiple project types, including web apps,
 Python tools, libraries, workspaces, and README-first prototypes. There are no
 user-project deployment integrations or automatic code previews.
 This local directory is a Git checkout of the working repository.
@@ -33,18 +33,18 @@ has not been selected. See [hosting notes](docs/hosting.md).
 
 ## Run locally
 
-Requires Node.js 22 and npm; install FFmpeg/ffprobe for recording/rendering.
+Requires Node.js 22 and npm; install FFmpeg/ffprobe for media and Chromium for promo rendering.
 
 ```bash
 npm install
+npm run setup:browser
 npm run dev
 ```
 
 Open http://localhost:5173. Find a project on your public GitHub profile or paste
-a repository. Add an audience and goal, choose a generated launch story, and
-review/download its launch pack. Video is optional; Commands opens keyboard
-shortcuts. Configure model and optional voice keys in your local .env using
-[.env.example](.env.example), then restart the API. No keys are collected in the UI.
+a repository. Review source-readiness guidance and the model-suggested brief,
+confirm the audience/goal, choose a launch story, and download its pack. Video is optional: source visuals or your footage, with approved ElevenLabs voice/music. Commands or `/` opens keyboard shortcuts. Configure model and optional voice keys in your local .env using
+[.env.example](.env.example), then restart the API. No keys are collected in the UI. Account setup tasks are collected in [todo.md](todo.md).
 
 `npm run build` builds the frontend and checks TypeScript; `npm test` runs controller
 and integration checks. See [development/setup](docs/development.md) for exact

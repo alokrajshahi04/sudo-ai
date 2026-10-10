@@ -10,15 +10,13 @@ The home page explains the promise and outputs: audience-specific stories,
 LinkedIn/X drafts, a sharing plan and optional demo assets. Primary action:
 **Find my projects**. Alternative: **Start with a repository**.
 
-Discovery scans public GitHub metadata and shows projects with ranking reasons.
-Selecting a project opens a brief form with the repository filled in. Audience
-and launch goal stay empty and are required; the repository description must
-never masquerade as an audience brief. Optional context describes working
-features, prototype limits and useful distinctions.
+First visit opens a concise product explanation with the three-step journey and `/` / Ctrl/Cmd+K shortcuts. Dismissal is remembered in localStorage; credentials and jobs are not stored there.
 
-Creating a brief reads source but spends no model credits. Public apps, CLI
-tools, libraries and prototypes use the same flow. No fictional walkthrough or
-example-product selector appears in the application.
+Public profile discovery and connected private-inclusive discovery show ranking reasons and coverage. Selecting a project opens a repository-only form. Private files require separate consent for reading and model transfer.
+
+Creating the job reads source, runs deterministic readiness checks and, when configured, asks the chosen model for a proposed product brief. This uses model quota, disclosed before starting. Progress shows actual source-reading steps, readiness and model status. Suggestions prefill editable fields; they do not confirm the owner's audience/goal. The user confirms the brief before continuing. Manual editing remains available when suggestions fail.
+
+Readiness findings expand with source links and a read-only one-shot coding-agent prompt. Copying it does not run code or modify the repository. Source review is partial and does not certify runtime readiness.
 
 ## Three guided screens
 
@@ -46,7 +44,7 @@ After generation, the UI reveals two story choices. Selecting a story updates th
 job; **Use this story & prepare my pack** prepares its launch plan and opens the
 pack. Media is a collapsed optional addition. A text launch does not require
 footage, ElevenLabs or FFmpeg. Missing media prerequisites explain the disabled
-operation. Narration still requires explicit approval and uses the user's quota.
+operation. Narration and music each require explicit approval and use the user's quota. Storyboard review gates promo rendering. Source visuals are labeled separately from footage; MP4/poster and upstream Brag handoff downloads are available.
 
 The pack offers a Markdown kit with the selected angle, post/narration drafts,
 prepared checklist/channels and cited evidence links/model provenance. Media
@@ -103,4 +101,6 @@ Screenshots/traces go to ignored test-results/.
 Browser model/research outputs are controlled fixtures. They verify UX and API
 sequencing, not live provider account access or marketing quality. Node integration
 tests separately exercise real endpoints, ownership, brief correction, source
-fixtures and invalidation. Live model/voice and Agent-Reach remain separate work.
+fixtures and invalidation. Gemma analysis/positioning and ElevenLabs voice/music have passed separate live checks; OAuth registration and Agent-Reach remain separate work.
+
+API startup failures show a visible connection message and Retry action inside dialogs. The app retries automatically; public discovery remains usable without GitHub sign-in or a successful model-capability check. A transient backend restart must not permanently disable project discovery.

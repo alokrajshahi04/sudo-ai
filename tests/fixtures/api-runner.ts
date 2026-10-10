@@ -1,12 +1,73 @@
 import { projectFiles } from "./projects";
 const sha = "a".repeat(40);
-globalThis.fetch = async (input) => {
+globalThis.fetch = async (input, init) => {
   const url = String(input);
   let data: unknown;
+  if (url === "https://github.com/login/oauth/access_token")
+    return new Response(
+      JSON.stringify({ access_token: "fixture-private-token" }),
+    );
+  if (url === "https://api.github.com/user")
+    return new Response(JSON.stringify({ login: "fixture-user" }));
+  if (url.startsWith("https://generativelanguage.googleapis.com/"))
+    return new Response(
+      JSON.stringify({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    summary: "A source-based prototype",
+                    suggestedBrief: {
+                      audience: "Student developers",
+                      goal: "Find five testers",
+                      context: "A prototype, runtime unverified",
+                    },
+                    assumptions: [
+                      "Audience is proposed, not a discovered fact",
+                    ],
+                    evidenceIds: ["source-1"],
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    );
   if (!url.startsWith("https://api.github.com/"))
     throw new Error("Unexpected external network request in test");
   const repo = url.match(/\/repos\/[^/]+\/([^/?]+)/)?.[1] || "app";
-  const files = projectFiles[repo] || projectFiles.app;
+  const authorized =
+    (init?.headers as Record<string, string>)?.Authorization ===
+    "Bearer fixture-private-token";
+  if (repo === "private" && !authorized)
+    return new Response("{}", { status: 404 });
+  const files =
+    repo === "private"
+      ? {
+          "README.md": "Private fixture implementation",
+          "package.json": projectFiles.app["package.json"],
+          "src/App.tsx": "export default function App(){return 'Private'}",
+          ".env": "secret=do-not-read",
+        }
+      : projectFiles[repo] || projectFiles.app;
+  if (url.includes("/user/repos?"))
+    return new Response(
+      JSON.stringify([
+        {
+          name: "private",
+          full_name: "fixture-user/private",
+          description: "Private tool",
+          private: true,
+          fork: false,
+          archived: false,
+          size: 20,
+          pushed_at: new Date().toISOString(),
+        },
+      ]),
+    );
   if (/\/users\/[^/]+\/repos/.test(url))
     data = Object.keys(projectFiles).map((name) => ({
       name,
@@ -40,7 +101,7 @@ globalThis.fetch = async (input) => {
     };
   } else
     data = {
-      private: false,
+      private: repo === "private",
       default_branch: "main",
       description: `Fixture ${repo}`,
       homepage: null,
