@@ -91,14 +91,66 @@ test("owned jobs, source provenance, origin checks, real media, and truthful rec
       body: JSON.stringify({ provider: "google" }),
     });
     assert.equal(response.status, 409);
-    response = await fetch(`${base}/api/jobs/${job.id}/plan`, {
+    response = await fetch(`${base}/api/jobs/${job.id}/strategy`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ provider: "vercel" }),
+      body: "{}",
     });
     job = await response.json();
-    assert.equal(job.deploymentPlan.supported, true);
-    assert.equal(new URL(job.deploymentPlan.handoffUrl).hostname, "vercel.com");
+    assert.equal(job.launchStrategy.channels.length, 3);
+    assert.equal(
+      (
+        await fetch(`${base}/api/jobs/${job.id}/plan`, {
+          method: "POST",
+          headers,
+          body: "{}",
+        })
+      ).status,
+      404,
+    );
+    const originalJob = job;
+    for (const [name, profile] of Object.entries({
+      next: "server_web",
+      python: "python_cli",
+      docs: "documentation",
+      workspace: "multi_service",
+      library: "library_cli",
+    })) {
+      response = await fetch(`${base}/api/jobs`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          repository: `https://github.com/fixture/${name}`,
+          brief: "Prepare an evidenced product marketing launch",
+        }),
+      });
+      assert.equal(response.status, 202);
+      job = await response.json();
+      await poll();
+      assert.equal(job.inspection.profile, profile);
+      assert.equal(job.inspection.blockers.length, 0);
+      response = await fetch(`${base}/api/jobs/${job.id}/strategy`, {
+        method: "POST",
+        headers,
+        body: "{}",
+      });
+      assert.equal(response.status, 200);
+      const strategy = await response.json();
+      assert.ok(strategy.launchStrategy.checklist.length);
+      assert.ok(
+        job.inspection.evidence.some((e: any) => e.title === "README.md"),
+      );
+      await fetch(`${base}/api/jobs/${job.id}`, { method: "DELETE", headers });
+    }
+    job = originalJob;
+    response = await fetch(`${base}/api/discover`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ username: "fixture" }),
+    });
+    assert.equal(response.status, 200);
+    const profile = await response.json();
+    assert.equal(profile.projects.length, 6);
     await fetch(`${base}/api/jobs/${job.id}/verify`, {
       method: "POST",
       headers,

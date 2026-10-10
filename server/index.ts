@@ -6,13 +6,12 @@ import { join, dirname } from "node:path";
 import type {
   Job,
   Phase,
-  Provider,
   Capabilities,
   Evidence,
   ModelProvider,
 } from "../shared/types";
 import { AppError, safeError, redact } from "./errors";
-import { inspect, parseRepo, github } from "./github";
+import { inspect, parseRepo, github, discoverProfile } from "./github";
 import { fetchPublic, plainText } from "./network";
 import { modelConfig, generatePositioning } from "./models";
 import { validateRecording, narrate, render, execute } from "./media";
@@ -43,11 +42,9 @@ const origins = new Set([
 app.use((req, res, next) => {
   const host = req.headers.host || "";
   if (!/^(?:localhost|127\.0\.0\.1):\d+$/.test(host))
-    return res
-      .status(403)
-      .json({
-        error: "Local application only. Public hosting is not enabled.",
-      });
+    return res.status(403).json({
+      error: "Local application only. Public hosting is not enabled.",
+    });
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
@@ -140,6 +137,7 @@ function capacity(bytes: Buffer, replaced?: Buffer) {
 }
 function clearGenerated(job: Job) {
   job.positioning = undefined;
+  job.launchStrategy = undefined;
   job.phases.position = { state: "idle" };
   job.phases.narrate = { state: "idle" };
   job.phases.render = { state: "idle" };
@@ -167,7 +165,6 @@ app.get("/api/capabilities", (_req, res) => {
     ),
     render: ffmpegAvailable,
     hostedCredentialEntry: false,
-    automatedDeployment: false,
     research:
       "Bounded public GitHub search and supplied public links. Agent-Reach integration pending.",
   };
@@ -243,7 +240,7 @@ app.post("/api/jobs/:id/inspect", (req, res) => {
     const inspected = await inspect(job.repository);
     if (job.inspection?.revision !== inspected.revision) {
       clearGenerated(job);
-      job.deploymentPlan = undefined;
+      job.launchStrategy = undefined;
       job.site = undefined;
       job.phases.verify = { state: "idle" };
       job.phases.recording = { state: "idle" };
@@ -339,6 +336,7 @@ app.post("/api/jobs/:id/angle", (req, res) => {
     .parse(req.body);
   if (!job.positioning) throw new AppError(409, "Generate positioning first.");
   if (job.selectedAngle !== input.index) {
+    job.launchStrategy = undefined;
     const assets = media.get(job.id);
     if (assets) {
       delete assets.narration;
@@ -351,39 +349,54 @@ app.post("/api/jobs/:id/angle", (req, res) => {
   job.selectedAngle = input.index;
   res.json(publicJob(job));
 });
-app.post("/api/jobs/:id/plan", (req, res) => {
+app.post("/api/jobs/:id/strategy", (req, res) => {
+  z.object({}).strict().parse(req.body);
   const job = getJob(req.params.id, res.locals.owner);
   if (busy.has(job.id))
     throw new AppError(409, "Wait for the current operation.");
-  const input = z
-    .object({ provider: z.enum(["vercel", "digitalocean"]) })
-    .strict()
-    .parse(req.body);
-  if (!job.inspection) throw new AppError(409, "Complete inspection first.");
-  const inspected = job.inspection;
-  job.deploymentPlan = {
-    provider: input.provider,
-    sourceRevision: inspected.revision,
-    supported:
-      inspected.profile === "static_vite" && !inspected.blockers.length,
-    buildCommand: inspected.buildCommand,
-    outputDirectory: inspected.outputDirectory,
-    handoffUrl:
-      input.provider === "vercel"
-        ? `https://vercel.com/new?import-git-url=${encodeURIComponent(job.repository)}`
-        : "https://cloud.digitalocean.com/apps/new",
+  if (!job.inspection)
+    throw new AppError(409, "Complete source inspection first.");
+  job.launchStrategy = {
+    launchType: job.site?.reachable ? "relaunch" : "showcase",
+    angleTitle: job.positioning?.angles[job.selectedAngle]?.title || null,
     createdAt: new Date().toISOString(),
-    notes: [
-      ...inspected.blockers,
-      ...inspected.warnings,
-      "Import this repository on the provider website. Review the account, source, build/output settings, and SPA routing there. No API deployment was executed.",
-      input.provider === "vercel"
-        ? "Vercel Hobby is limited to non-commercial personal use. Check eligibility before launch."
-        : "Confirm App Platform static-site pricing and your actual credit balance.",
-      "This handoff cannot attest the built revision. Source inspection is pinned; imported branches may move.",
+    channels: [
+      {
+        name: "LinkedIn",
+        purpose:
+          "Explain the problem, intended user, and one evidenced use case.",
+        timing: "Launch day, after reviewing copy.",
+      },
+      {
+        name: "X",
+        purpose: "A short hook, real demo, and repository or live link.",
+        timing: "Launch day; follow up with what you learned.",
+      },
+      {
+        name: "GitHub README",
+        purpose:
+          "Give visitors a clear description, setup, license, and accurate feature status.",
+        timing: "Before sharing the launch.",
+      },
+    ],
+    checklist: [
+      "Review the inspected features and distinguish implemented behavior from plans.",
+      "Choose one audience and positioning angle.",
+      "If this project needs a live site, publish it yourself with a suitable provider and runtime; Sudo Launch offers guidance only.",
+      "Use an existing public URL when available, or launch a library/CLI with repository and installation instructions.",
+      "Record one real interaction or usage example; do not imply automatic verification.",
+      "Review captions/narration and launch posts before sharing.",
+      "Share drafts manually and collect feedback; do not fabricate traction.",
     ],
   };
   res.json(publicJob(job));
+});
+app.post("/api/discover", async (req, res) => {
+  const input = z
+    .object({ username: z.string().min(1).max(39) })
+    .strict()
+    .parse(req.body);
+  res.json(await discoverProfile(input.username));
 });
 app.post("/api/jobs/:id/verify", (req, res) => {
   const job = getJob(req.params.id, res.locals.owner);
@@ -571,7 +584,7 @@ app.get("/api/jobs/:id/receipt", (req, res) => {
     limitations: [
       "Local in-memory job expires after one hour and is lost on server restart.",
       "Source evidence and HTTP reachability are not proof of product interactions.",
-      "Guided deployment cannot establish built revision.",
+      "Publishing is performed by the developer, not Sudo Launch.",
       "Recordings, if present, are supplied by the user.",
     ],
   });

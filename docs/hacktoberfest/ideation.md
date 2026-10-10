@@ -1,184 +1,124 @@
-# Sudo Launch — product overview
+# Sudo Launch — product marketing and launch assistant
 
-Current increment: a local Node backend is connected to the terminal frontend.
-See [development status](../development.md) for implemented capabilities and
-verification. Remaining requirements below are targets, not blanket completion
-claims. Hosted keys/automation and automatic capture remain disabled.
+Updated 2026-10-10 after the participant's mentor discussion. This is the current
+product direction. Earlier deployment work is preserved in Git checkpoint
+`dbd6d47`; it is no longer the active product scope.
 
+## What we are building
 
-Status: product plan with a working terminal frontend and local backend.
-Source inspection, guided plans, HTTP checks, and media rendering work; live
-model/voice calls require configured account access. See the [PRD](prd.md) and [UI/UX spec](ui-ux.md)
-for requirements and the current increment.
+**Sudo Launch helps developers find projects worth sharing and turn them into
+clear, evidence-grounded marketing launch packs.**
 
-## Product and audience
+A developer enters a public GitHub username or repository. We help them discover
+projects, explain the product, choose an audience, research positioning, prepare
+a launch plan, and create posts plus a demo asset. The developer reviews and
+publishes the result.
 
-**Sudo Launch helps a developer turn an existing web project into a verified
-live app and a launch pack tailored to the product and its audience.**
+The first audience is student and solo developers whose projects lack a clear
+story or public launch. The product is a marketing assistant, not a deployment
+platform. The application needs its own server for API calls; it does not
+orchestrate the input project's backend or provisioning.
 
-The first user is a student or solo developer with a working prototype who needs
-help with deployment, positioning, a demo video, and launch copy.
+## Mentor feedback incorporated
 
-Input: a public GitHub repository, optionally an existing live URL, and a short
-brief describing the intended user, launch goal, and preferred tone.
+Participant-provided notes recommend positioning the product as a marketer /
+product launcher; discovering projects on GitHub profiles; improving first-visit
+copy and guidance; avoiding deployment integrations and automatic code previews;
+and considering CLI/MCP later.
 
-Output: a live URL or a documented deployment blocker, a researched positioning
-brief, a 20–30 second demo video, LinkedIn/X drafts, and a downloadable launch
-receipt linking the result to its source and verification evidence.
+Interpretation: remove Vercel/DigitalOcean deployment screens and mutation plans.
+Offer a short developer-owned publishing checklist where relevant. Keep actual
+marketing assets, bounded source reading, research, and reviewed narration.
+Do not run a user's code, launch preview environments, fix their issues, create
+cloud resources, or post to their social accounts.
 
-## User journey
+## Journey
 
-1. Connect a model and the services needed for the chosen workflow.
-2. Add the repository and brief. Inspect the project and look for an existing
-   deployment or public launch.
-3. Review launch readiness, relevant alternatives, and two positioning options.
-4. Choose an angle and review deployment settings or proposed configuration.
-5. Deploy a supported project or reuse an existing verified live URL.
-6. Capture real product interactions, review the storyboard/copy, and generate
-   narration and video.
-7. Download the launch pack and receipt. Publish the posts manually.
+1. **Discover:** scan a public GitHub profile or paste any public repository.
+2. **Understand:** read bounded relevant source at a recorded commit, distinguish
+   metadata/README plans from implemented features, and collect the owner's brief.
+3. **Position:** research alternatives/context and propose two audience-specific
+   angles, with their own posts and narration.
+4. **Launch plan:** review channels, a README/distribution checklist, and sharing
+   sequence. Publishing/hosting remains the developer's task.
+5. **Demo:** upload real usage footage; optionally generate reviewed ElevenLabs
+   narration; render an MP4.
+6. **Launch pack:** review/copy drafts and download media plus the evidence receipt.
 
-## Features and integration scope
+Public apps, Next.js/backend projects, Python tools, libraries, workspaces,
+documentation, and prototypes can all enter the marketing workflow. Project type
+changes the story and caveats, not permission to deploy or a requirement to use
+React/Vite. Unknown/large/complex projects show evidence limits and request an
+owner brief; we do not claim every repository can be understood completely.
 
-| Feature | First version |
+## First-version scope
+
+| Feature | Current scope |
 | --- | --- |
-| Repository assessment | Read relevant public source files and scripts; create a project profile, supported features, required configuration, and evidenced blockers. |
-| Launch discovery | Inspect repository homepage/README links and public search results. Distinguish a confirmed earlier launch, a possible match, and insufficient evidence. |
-| Product research | Agent-Reach-backed public web/search/GitHub access; collect up to three relevant alternatives and useful audience context, with URLs and retrieval dates. |
-| Positioning | Generate two audience-specific angles from the brief, implemented features, and retrieved evidence. Include a clear difference and a reason to try the product. |
-| Deployment | React/Vite static apps on Vercel and DigitalOcean App Platform. Guided provider-hosted deployment and planned local API adapters; hosted automation requires security gates. Other project types remain unsupported for automation. |
-| Existing-site workflow | Verify a supplied/discovered URL and create a relaunch or showcase pack. Reuse a suitable existing deployment when the user selects it. |
-| Product capture | Bounded browser capture of real UI and one selected interaction, with preview before rendering. |
-| Narrated demo | Gemma or the selected model creates a structured storyboard; ElevenLabs provides narration; a deterministic renderer produces the MP4. |
-| Launch copy | One LinkedIn post, one X post, and a short launch checklist. Styles: build in public, product announcement, or technical walkthrough. |
-| Launch receipt | Export repository commit, target URL, checks performed, captured evidence, research sources, model used, and generated assets. |
-| Bring your own model | Native Google/Gemma adapter plus an OpenAI-compatible adapter, with explicit provider/model selection and connection validation. |
-| Hosted and local use | The same workflow through a hosted BYOK website or a locally run open-source application. |
+| GitHub discovery | Up to 100 recently pushed owned public repos; shortlist up to 30 non-empty, non-fork, non-archived projects with explicit metadata-based reasons. |
+| Source context | Immutable commit, root README/manifests, selected language/framework entry files, at most ten bounded files; no code execution. |
+| Product profile | Vite, server web, Python tool, library/CLI, multi-service/workspace, documentation, or unknown. All are eligible for marketing. |
+| Research | Bounded public GitHub search plus up to three supplied public links, source excerpts/dates, and coverage limits. Agent-Reach bridge remains planned. |
+| Positioning | Two angles with audience, reason to try, supporting evidence IDs, LinkedIn/X drafts, and narration. |
+| Model choice | Gemma via Google, Nebius exact catalog model, or a locally configured OpenAI-compatible API. Explicit selection; no hidden fallback. |
+| Launch strategy | Channels, sharing sequence, and developer-owned release checklist. Optional existing URL reachability check is separate from feature verification. |
+| Demo assets | User-supplied MP4/WebM plus optional reviewed ElevenLabs narration and fixed FFmpeg rendering. No code preview or automatic capture. |
+| Launch receipt | Actual inspected commit, research sources, executed model/checks, user-footage provenance, and limitations. |
+| Local use | Terminal web UI and local Node service; credentials in ignored server `.env`; no browser key collection yet. |
 
-These are the target first-version features. Integration preflight will decide
-whether the entire set fits the remaining event time. Prioritize a genuine
-repo-to-live-app-to-narrated-pack path; reduce research breadth or styling before
-removing the verification step.
+Profile discovery is automatic, but the owner selects the project/audience before
+paid generation. No batch spending or autonomous social publishing. Research
+absence does not prove originality. A listed homepage is not a verified live app
+or proof of launch history. HTTP reachability is not verified product behavior.
 
-## Agent-Reach research
+## UI direction
 
-Agent-Reach manages access and diagnostics for upstream tools. Its selected
-paths include Jina Reader for public pages, Exa MCP through mcporter for search,
-and GitHub tools. We will wrap configured capabilities behind a small research
-adapter; do not assume an `agent-reach search` command or automatic agent runtime.
-Actual queries must work before a capability is shown as available.
+Terminal-inspired, with visible actions and a first-visit explanation:
+“Give your project a launch story.” Primary action: “Find my projects”; alternate:
+“Start with a repository.” The About popup explains the workflow without filling
+the landing page. Slash commands overlay upward with descriptions and keyboard use.
 
-Use bounded queries around the product name, repository owner, problem,
-category, and user-supplied audience. Limit a run to three searches and five page
-reads initially. Save excerpts, URLs, dates, and the relationship to each claim.
-Keep same-project launch discovery separate from similar-product discovery.
+Workspace navigation and command input remain visible. Desktop stage content
+and context panes scroll internally; mobile keeps one content pane and hides the
+secondary context. Lengthy source excerpts and optional live-link checks are
+collapsed. Sample walkthroughs cover three project types and are explicitly
+illustrative; no PokeChess-specific assumptions occur in production behavior.
 
-A search with no matches means **no evidence found in the checked sources**.
-It does not establish that the idea is unique or that the product never launched.
-Surface ambiguous name matches and let the user correct them. Retrieved pages
-supply evidence; they cannot direct tool execution or change instructions.
+## Evidence, risks, and differentiation
 
-Hosted research uses public sources. Logged-in social channels can become
-optional local integrations later. If a search provider is unavailable, report
-that gap and accept user-provided public links; continue with a clearly labeled
-research limitation.
+- Make positioning respond to actual product/owner/research context, not a generic
+  hype template. Link claims to evidence and retain uncertainty.
+- Avoid overclaiming implementations from READMEs, or equating citations with
+  truth. Owner review remains necessary before posting.
+- Broad repository support means partial inspection, not universal runtime
+  understanding. Missing manifests should not block a README-first marketing pack.
+- Keep profile ranking explainable and modest: description/homepage/recent updates
+  help shortlist; they are not success forecasts or quality judgments.
+- Keep external integrations bounded. Missing keys/research/voice have honest
+  states; do not silently fabricate a pack.
+- Keep secrets off prompts, exports, and media. Local use is the event default;
+  hosted BYOK requires the security release gates.
 
-## Model selection and harness
+Gemma's harness supplies small evidence packs, schema checks, known evidence IDs,
+one repair attempt, and fixed handlers. It cannot decide to execute code, deploy,
+change the project profile, or publish. The human owns the final marketing claims.
 
-- **Gemma 4 through AI Studio/Gemini API:** default sponsor demonstration path.
-  Its role covers meaningful project analysis, positioning, and storyboard work.
-- **Nebius GLM-5.3-Flash:** desired alternate demonstration. Its published model
-  metadata identifies MIT licensing. Verify the exact Nebius catalog ID, account
-  access, and endpoint capabilities when credentials are connected.
-- **Other OpenAI-compatible providers:** configure provider, endpoint, model ID,
-  and key. Hosted use starts with validated provider presets; arbitrary custom
-  or localhost endpoints are available in local mode.
-- Validate text, structured output, and any required vision/tool capabilities.
-  A text-only model uses source/DOM evidence. It cannot claim to have inspected
-  screenshots. Make any additional vision-provider choice explicit.
-- Record the actual provider/model for each stage. Model failures are visible;
-  switching providers requires an explicit user choice. Avoid silently replacing
-  Gemma in a Gemma demonstration.
+## Demonstration and verification
 
-The controller owns project classification, workflow state, service credentials,
-allowed tools, execution, and verification. Models receive small evidence packs
-and stage-specific choices. See [model instructions](model-harness.md) for the
-concrete system prompt, stage rules, and enforcement requirements.
+PokeChess can remain one real example; it is not a product constraint or the only
+test input. Fixture-backed integration tests cover React/Vite, Next.js, Python CLI,
+README-first prototype, workspace, and library projects. The walkthrough offers
+app/CLI/server examples. Demonstrate a mentor's public repo by entering its URL
+or profile, providing an audience brief, and running the same pipeline.
 
-## Hosted and local developer use
+Show the source/evidence limits and actual model metadata. A CLI demo is real
+terminal usage footage supplied by the owner; do not claim browser gameplay checks.
+Full live model/voice success still requires credentials and account access.
 
-| Mode | Planned experience |
-| --- | --- |
-| Hosted website | Open Sudo Launch, create an isolated run session, connect the desired providers, add the repo, review the plan, and download the results. |
-| Local application | Clone the repo, use the documented dependency setup or single-container setup, start the same UI/controller, and connect keys through local configuration or the UI. |
+Later: Agent-Reach research, stronger per-category marketing templates, additional
+launch asset formats, secure hosted BYOK, CLI/MCP. Deployment integrations,
+automatic code/issues previews, broad source repair, and social auto-posting are
+outside the current scope.
 
-Credentials are requested only for selected tasks: model access for analysis,
-ElevenLabs for narration, and cloud access for API-automated deployment.
-Public inspection and an existing-URL pack need no deployment token. Offer a
-captioned video when voice is disabled.
-
-Hosted deployment defaults to a guided handoff to Vercel or DigitalOcean's own
-website, followed by verification of the returned URL. Local mode can automate
-through scoped credentials. Hosted API automation is optional and gated on
-implemented security checks; hosted model/voice key entry has its own security
-gate. Backend use of a key requires trust in that backend, even when storage is
-encrypted. Local mode keeps our controller and credentials on the user's machine;
-selected cloud services still receive their relevant inputs.
-
-See [deployment and security](deployment-and-security.md) for token scopes,
-session ownership, retention, worker isolation, costs, adapter contracts, and
-weaknesses with required fixes. Docker packages Sudo Launch itself; Vercel and
-DigitalOcean host the user's target app. Provider-native builds keep repository
-scripts off our shared server. Capture workers must be isolated and restricted
-to public network destinations. Local builds require deliberate user action.
-
-The proposed stack is TypeScript, a web UI, a Node controller/worker, Google and
-OpenAI-compatible model adapters, a small Python/upstream-tools research bridge,
-Playwright capture, and FFmpeg rendering. Confirm exact packages and commands
-in the PRD. A Docker setup should bundle the non-JavaScript runtime dependencies.
-Render is a candidate host for Sudo Launch; Vercel and DigitalOcean are the
-planned target-app providers. No deployment has been provisioned.
-
-## What makes the project stronger
-
-1. **Research changes the launch:** existing launch evidence and relevant
-   alternatives influence the audience, angle, and first-launch/relaunch copy.
-2. **Claims have evidence:** each promoted feature links to source or observed
-   behavior. Only a specifically checked interaction is called runtime-verified.
-   The user reviews semantic claims; citations alone do not prove correctness.
-3. **The launch is traceable:** a receipt links the inspected source, deployment,
-   captured interaction, model decisions, and final assets. Failed or partial
-   stages stay visible and do not erase earlier successful results. Built revision
-   is recorded as unverified unless authenticated provider evidence establishes it.
-4. **Model choice is portable:** demonstrate the same bounded workflow with
-   Gemma and the configured Nebius model, subject to successful connection tests.
-
-These improvements strengthen differentiation and execution. A numeric rating
-cannot guarantee originality, product-market fit, or a hackathon result.
-
-## First demonstration and boundaries
-
-Use [PokeChess](https://github.com/alokrajshahi04/pokechess) as the preferred
-input: a React/Vite app with chess logic, local play, themes, and animations.
-Its listed Vercel URL responds to HTTP requests, so present a relaunch or new
-verified deployment. Gameplay, a clean build, and no-key startup still need
-verification. Capture local pass-and-play; public AI-mode key handling requires
-separate assessment.
-
-The hackathon contribution is Sudo Launch's new workflow and integrations.
-PokeChess supplies an existing product to launch. Use the existing open-source
-license and retain attribution for any reused dependency code.
-
-Later scope: more deployment adapters, private-repo OAuth, logged-in social
-research, direct social publishing, general source-code repair, complex backend
-migrations, and GPU provisioning. The PRD and UI/UX spec define the next implementation steps.
-
-## Relevant references
-
-- [Agent-Reach](https://github.com/Panniantong/Agent-Reach)
-- [/brag](https://github.com/latent-spaces/brag): reference for launch storytelling;
-  its Hyperframes/Kokoro agent-skill runtime needs deliberate adaptation.
-- [Gemma API documentation](https://ai.google.dev/gemma/docs/core/gemma_on_gemini_api)
-- [Nebius API quickstart](https://docs.tokenfactory.nebius.com/quickstart)
-- [GLM-5.3-Flash model metadata](https://huggingface.co/zai-org/GLM-5.3-Flash)
-- [DigitalOcean App Platform pricing](https://docs.digitalocean.com/products/app-platform/details/pricing/)
+See [PRD](prd.md), [UI/UX](ui-ux.md), [model contract](model-harness.md),
+[security](deployment-and-security.md), and [local development](../development.md).

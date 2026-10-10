@@ -12,13 +12,16 @@ university and have officially checked in to MLH. This is participant-provided
 context. Verified event details are recorded in the
 [event brief](docs/hacktoberfest/event-brief.md).
 
-The selected project is **Sudo Launch**, an open-source repo-to-launch assistant.
-Its [product overview](docs/hacktoberfest/ideation.md),
-[PRD](docs/hacktoberfest/prd.md), and [UI/UX spec](docs/hacktoberfest/ui-ux.md)
-define the scope. A terminal frontend and local Node backend now support source
-inspection, bounded research, model adapters, guided deployment plans, public
-HTTP checks, uploaded recordings, optional narration, rendering, and real receipts.
-Public hosting and automated cloud deployment remain pending.
+The selected project is **Sudo Launch**, an open-source product marketing and
+launch assistant. Discover projects on GitHub, choose an audience, research the
+positioning, and prepare a launch plan, demo assets, and LinkedIn/X drafts.
+Developers review and publish the result themselves.
+
+Its [overview](docs/hacktoberfest/ideation.md), [PRD](docs/hacktoberfest/prd.md),
+and [UI/UX spec](docs/hacktoberfest/ui-ux.md) define the current scope. The local
+frontend/backend support multiple public project types, including web apps,
+Python tools, libraries, workspaces, and README-first prototypes. There are no
+user-project deployment integrations or automatic code previews.
 This local directory is a Git checkout of the working repository.
 
 See [network troubleshooting](docs/network-troubleshooting.md) for the resolved

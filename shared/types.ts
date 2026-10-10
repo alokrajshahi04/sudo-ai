@@ -1,4 +1,3 @@
-export type Provider = "vercel" | "digitalocean";
 export type ModelProvider = "google" | "nebius" | "custom";
 export type Phase =
   | "inspect"
@@ -20,7 +19,14 @@ export interface Evidence {
 export interface Inspection {
   revision: string;
   branch: string;
-  profile: "static_vite" | "server_web" | "unknown";
+  profile:
+    | "static_vite"
+    | "server_web"
+    | "python_cli"
+    | "library_cli"
+    | "multi_service"
+    | "documentation"
+    | "unknown";
   buildCommand: string | null;
   outputDirectory: string | null;
   files: string[];
@@ -56,15 +62,28 @@ export interface SiteCheck {
   builtRevision: null;
   interaction: "not_checked";
 }
-export interface DeploymentPlan {
-  provider: Provider;
-  sourceRevision: string;
-  supported: boolean;
-  buildCommand: string | null;
-  outputDirectory: string | null;
-  handoffUrl: string;
-  notes: string[];
+export interface LaunchStrategy {
+  launchType: "showcase" | "relaunch";
+  angleTitle: string | null;
+  checklist: string[];
+  channels: { name: string; purpose: string; timing: string }[];
   createdAt: string;
+}
+export interface ProjectCandidate {
+  name: string;
+  repository: string;
+  description: string;
+  language: string | null;
+  homepage: string | null;
+  updatedAt: string;
+  score: number;
+  reasons: string[];
+}
+export interface ProfileDiscovery {
+  username: string;
+  projects: ProjectCandidate[];
+  checkedAt: string;
+  coverage: string;
 }
 export interface Job {
   id: string;
@@ -79,7 +98,7 @@ export interface Job {
   positioning?: Positioning;
   selectedAngle: number;
   modelPreference: ModelProvider;
-  deploymentPlan?: DeploymentPlan;
+  launchStrategy?: LaunchStrategy;
   site?: SiteCheck;
   artifacts: {
     type: "recording" | "narration" | "video";
@@ -93,6 +112,5 @@ export interface Capabilities {
   narration: boolean;
   render: boolean;
   hostedCredentialEntry: false;
-  automatedDeployment: false;
   research: string;
 }

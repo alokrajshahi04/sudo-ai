@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseRepo, classify } from "../server/github";
+import { parseRepo, classify, rankProjects } from "../server/github";
 import { publicAddress, publicUrl } from "../server/network";
 import { redact } from "../server/errors";
 import { validatePositioning } from "../server/models";
@@ -20,12 +20,13 @@ test("repository input cannot escape the GitHub source boundary", () => {
   ])
     assert.throws(() => parseRepo(url));
 });
-test("static readiness does not silently accept server dependencies or dynamic build output", () => {
+test("source classification separates profiles and records publishing caveats as warnings", () => {
   const files = {
     "package.json": JSON.stringify({
       dependencies: { react: "1", vite: "1" },
       scripts: { build: "tsc && vite build" },
     }),
+    "README.md": "A working task board",
     "src/App.tsx":
       'const key = import.meta.env.VITE_API_KEY; fetch("/api/foo");',
   };
@@ -43,13 +44,13 @@ test("static readiness does not silently accept server dependencies or dynamic b
     classify({
       ...files,
       "vite.config.ts": "build: { outDir: process.env.OUTPUT }",
-    }).blockers.length,
+    }).warnings.some((w) => w.includes("developer review")),
   );
   assert.ok(
     classify({
       ...files,
       "vite.config.ts": "build: { outDir: '../../private' }",
-    }).blockers.length,
+    }).warnings.some((w) => w.includes("developer review")),
   );
 });
 test("public fetch policy rejects local, metadata, reserved and mapped private IPs", () => {
@@ -122,4 +123,41 @@ test("model output requires known evidence and refuses extra action fields", () 
       new Set(["source-1"]),
     ),
   );
+});
+
+import { projectFiles } from "./fixtures/projects";
+for (const [name, expected] of Object.entries({
+  app: "static_vite",
+  next: "server_web",
+  python: "python_cli",
+  docs: "documentation",
+  workspace: "multi_service",
+  library: "library_cli",
+})) {
+  test(`marketing source inspection accepts ${name} projects without a deployment gate`, () => {
+    const result = classify(projectFiles[name]);
+    assert.equal(result.profile, expected);
+    assert.equal(result.blockers.length, 0);
+  });
+}
+test("profile discovery excludes forks/archive/private/empty repos and does not invent readiness", () => {
+  const base = {
+    name: "tool",
+    full_name: "owner/tool",
+    size: 1,
+    description: "A tool",
+    language: "Python",
+    pushed_at: new Date().toISOString(),
+    homepage: null,
+  };
+  const result = rankProjects([
+    base,
+    { ...base, fork: true },
+    { ...base, archived: true },
+    { ...base, private: true },
+    { ...base, size: 0 },
+  ]);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].repository, "https://github.com/owner/tool");
+  assert.ok(result[0].reasons.every((r) => !r.includes("ready")));
 });

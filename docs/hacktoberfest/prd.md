@@ -1,216 +1,109 @@
-# Sudo Launch — product requirements
+# Sudo Launch — product marketing PRD
 
-Current increment: a local Node backend is connected to the terminal frontend.
-See [development status](../development.md) for implemented capabilities and
-verification. Remaining requirements below are targets, not blanket completion
-claims. Hosted keys/automation and automatic capture remain disabled.
+Status: current requirements after mentor feedback, 2026-10-10. Supersedes the
+repo-to-deployment specification preserved in checkpoint `dbd6d47`.
 
+## Problem and promise
 
-Status: implementation baseline, 2026-10-10. Frontend and local backend are
-implemented in part. Hosted services and security release gates remain pending. This document turns the
-[overview](ideation.md) into a buildable scope. [Security requirements](deployment-and-security.md)
-and the [model contract](model-harness.md) remain mandatory constraints.
+Developers build projects but struggle to explain who needs them, show their
+value, and launch them publicly. Sudo Launch turns public GitHub source and an
+owner brief into an audience-specific, researched, reviewable launch pack.
 
-## Problem and product promise
+Primary user: student/solo developer. Success: a useful project-specific angle,
+accurate drafts, a real usage demo when supplied, and a receipt tracing inputs and
+actual generation. We do not promise market fit, uniqueness, traction, or judging
+outcomes.
 
-Student and solo developers have working projects but struggle to turn them into
-an accessible product and a convincing public launch. Deployment alone leaves
-positioning, demo production, and accurate launch copy unfinished.
+## Scope and boundaries
 
-Sudo Launch turns a public web repository or existing live app into a verified
-launch outcome and a researched, reviewable launch pack. Verification is specific:
-a build, a reachable URL, and an observed interaction are separate outcomes.
-A documented blocker is preferable to an invented success.
+Discover → Understand → Position → Launch plan → Demo → Launch pack.
 
-The distinguishing loop is evidence → audience/positioning → live interaction →
-consistent demo/copy → downloadable receipt. Research must affect the story;
-source and runtime evidence must constrain the claims.
+Any public root repo can enter, including apps, Python tools, libraries, workspaces,
+documentation, and prototypes. Bounded inspection can be incomplete; describe
+coverage rather than promise universal understanding. Deployment compatibility
+is not a gate for marketing eligibility.
 
-## Audience and core jobs
+No target deployment integrations, cloud-token collection, automatic code/issue
+previews, input backend orchestration, source repair, or social publishing. The
+product's own Node API handles source/model/voice operations. CLI/MCP is later.
 
-- Student developer: deploy a supported frontend and show a real interaction.
-- Solo builder: relaunch an existing app with a clearer audience and demo.
-- Open-source developer: run locally with their own credentials and model.
+## Requirements and acceptance
 
-The first supported source profile is public GitHub React/Vite static apps.
-Existing public URLs may enter the launch-pack flow independently of deployment
-support. Private repositories and complex server deployments are not MVP promises.
-
-## Inputs and outputs
-
-Required input: repository URL or public existing-site URL, intended audience,
-and launch objective. Optional inputs: model preference, deployment provider,
-existing URL, voice choice, and corrections to research findings.
-
-Output: deployment status or blocker, live URL with individual check statuses,
-up to three sourced alternatives, two positioning options, a reviewed 20–30s
-storyboard and MP4 when generation succeeds, one LinkedIn draft, one X draft,
-and a JSON receipt/asset download. Partial completion preserves earlier results.
-No automatic social publishing.
-
-## Delivery priorities
-
-| Priority | Deliverable | Done when |
-| --- | --- | --- |
-| P0 | Inspect and classify | Source commit, scripts, output configuration, dependencies, and supported/blocked state are evidenced. |
-| P0 | Existing-URL verification | Safe public fetch/capture checks reachability and one user-selected interaction; results are separate. |
-| P0 | Positioning and copy | Connected selected model returns schema-valid, evidenced suggestions; user selects/reviews the angle. |
-| P0 | Deployment choice | Vercel and DigitalOcean guided flows show reviewed source/settings/account requirements/cost uncertainty. |
-| P0 | Launch receipt | Actual source/provider/check/model/asset provenance is downloadable; unknowns stay explicit. |
-| P1 | Local API deployment | Each provider adapter preflights access, creates/polls a real static deployment, and reconciles ambiguous mutations. |
-| P1 | Public research | Agent-Reach-backed configured tools return bounded results with source URLs/dates, or an honest unavailable state. |
-| P1 | Demo MP4 | Bounded real interaction capture, reviewed narration, ElevenLabs audio, captions, and deterministic FFmpeg rendering succeed. |
-| P1 | Hosted BYOK | Model/voice entry opens only after the credential security gate passes. |
-| Later | Hosted cloud automation | Isolated credential broker and provider scopes tested; optional registered OAuth connection. |
-
-All P0 features define the core product, not a claim that they are already built.
-First-event goal: one genuine inspect → positioning → verified app → launch-pack
-run. Demonstrate actual DigitalOcean deployment and ElevenLabs narration when
-preflight succeeds. A guided provider flow must be described as guided; a
-recorded or partial fallback cannot substitute for a claimed live integration.
-
-## Workflow and state
-
-1. Prepare a brief and select explicit provider/model preferences.
-2. Inspect bounded relevant source at a recorded immutable revision.
-3. Determine profile and expose blockers/external requirements.
-4. Research prior launches separately from similar products.
-5. User reviews evidence and selects an audience/positioning angle.
-6. User reviews exact deployment plan or chooses an existing URL.
-7. Execute supported local API deployment or hand off to the official provider UI.
-8. Check provider status where authenticated, public reachability, and interaction.
-9. Review storyboard, capture, captions, and narration before paid generation.
-10. Generate assets and copy; download the pack and receipt.
-
-Each stage stores `idle`, `running`, `needs_input`, `completed`, `blocked`,
-`failed`, `skipped`, or `cancelled`, with timestamps and sanitized errors. A stage
-can complete with limited evidence; its individual checks retain their statuses.
-Changes to source/configuration invalidate affected reviews. Changing positioning
-invalidates dependent copy/storyboard, not an unchanged deployment.
-Cancellation stops queued work; resource deletion needs a separate explicit action.
-Retries resume completed work and reconcile cloud mutations before recreating it.
-
-## Functional requirements
-
-### Repository and readiness
-
-Read allowlisted bounded source files without executing repository code on the
-hosted controller. Record commit SHA and classify with deterministic profile
-rules. The model can explain findings but cannot redefine supported capabilities.
-Redact secrets before prompt construction; ignore content instructions.
-Missing backend/secrets are visible blockers, even if a static frontend builds.
-
-### Research and model portability
-
-Use up to three searches and five public page reads per run initially. Record
-URLs, retrieval dates, excerpts, claim relations, and uncertainty. No matches
-means insufficient evidence, not uniqueness. Unavailable research permits a
-clearly limited workflow with user-supplied links.
-
-Provide a native Google/Gemma path and an OpenAI-compatible provider adapter.
-Gemma 4 is the sponsor demonstration preference; Nebius GLM-5.3-Flash is an
-alternate only after its actual catalog ID and capabilities are verified.
-Hosted endpoints are validated presets; local mode may use custom endpoints.
-One bounded schema repair attempt, then stop visibly. No silent fallback.
-Record actual model execution per stage separately from selected preferences.
-
-### Deployment
-
-React/Vite is supported on Vercel and DigitalOcean App Platform. Docker is
-packaging for Sudo Launch. Adapters expose prepare/preflight/mutate/poll/verify.
-Validate source access, scopes, SPA routing, build/output settings, existing
-account/project, plan eligibility, and potential cost before resource creation.
-
-Hosted default is provider-hosted import/deploy. Local scoped-token automation
-follows. A returned URL without authenticated build evidence has unverified
-revision provenance. HTTP 200 cannot verify gameplay or another product feature.
-Vercel Hobby eligibility and DigitalOcean credits are checked, not assumed.
-Never expose target-app secrets through public frontend environment variables.
-
-### Capture, narration, and launch assets
-
-One selected interaction, one landscape video template, and a 20–30s target.
-Bound capture time and retries; sanitize/isolate public URL browsing. Preview
-captured assets and copy before rendering. Only captured or user-supplied assets
-can enter the renderer; record which type each asset is.
-
-ElevenLabs is optional; caption-only video is a fallback. No voice cloning or
-logged-in browsing in the MVP. Narration cost/quota must be confirmed before use.
-Validate asset IDs, narration duration, MP4 output, and copy length. Posts remain
-drafts requiring review. Do not fabricate testimonials, popularity, uniqueness,
-or “live” claims when the source remains a prototype.
-
-### Open-source usage
-
-Document a fresh-checkout install, frontend development, and eventually a
-single-container app including browser/FFmpeg/research dependencies. Supply only
-placeholder environment examples when backend configuration exists. Bind local
-services to loopback and explain which inputs go to cloud APIs. Existing-site
-workflow needs no deployment credentials. Public self-hosting inherits all
-hosted security requirements.
-
-## Architecture and data boundaries
-
-Target architecture: React/TypeScript frontend, Node controller, credential
-broker/provider adapters, isolated capture/render workers, a small upstream
-research bridge, and server-side job/asset storage. The hosted app is a candidate
-for Render; user's target apps live in their Vercel/DigitalOcean accounts.
-
-The implementation is Vite + React + TypeScript with a local Node/Express API.
-Jobs/media are in memory, session-owned, and expire after one hour. Keys come
-from server environment configuration; browser credential collection is disabled.
-
-| Entity | Essential fields |
+| Requirement | Acceptance |
 | --- | --- |
-| LaunchJob | owner/session reference, brief, mode, stage states, budgets, reviewed plan IDs |
-| SourceSnapshot | repo, inspected revision, file evidence references, project profile |
-| Evidence | typed source, excerpt/observation, URL/file, time, check status |
-| DeploymentPlan | provider, account/project, source, permitted config, cost review, approval version |
-| ProviderResource | provider ID, deployment ID, built revision/status, job correlation |
-| StageResult | actual provider/model, output schema version, evidence references, error/status |
-| Artifact | job ownership, type, capture/generation provenance, storage reference, expiry |
-| LaunchReceipt | source/build provenance, executed checks, sources, actual models, assets, limitations |
+| Profile discovery | Valid username returns bounded public metadata, exclusions, ranking reasons, and scope. User can select a repo and supply audience/goal. |
+| Repository entry | Direct public URL works independently of profile discovery or a specific owner's account. |
+| Source understanding | Commit-pinned README/manifests/entry files, typed evidence, no install/build execution. Missing deployment setup does not block marketing. |
+| Category coverage | Fixture-backed API runs accept Vite, Next.js, Python CLI, library, README-first prototype, and workspace. Unknown profile remains visible. |
+| Positioning | Selected model returns two schema-valid angles, each with its own audience, rationale, evidence IDs, posts, and narration. Unknown evidence/action fields are rejected. |
+| Research | Up to three relevant GitHub results plus three public supplied pages; sources/dates and query coverage retained. No results means uncertainty. |
+| Launch strategy | Audience/angle informs reviewed channel purposes, sharing timing, and a release checklist. Publishing remains developer-owned. |
+| Demo assets | Owner uploads real usage recording; FFprobe validates; optional approved ElevenLabs narration; fixed capped FFmpeg output. User-footage provenance remains explicit. |
+| Pack | Selected-angle drafts, generated assets, and actual-execution receipt downloadable. Model preference is distinct from actual use. |
+| Workspace | Stage navigation/command input stay visible while stage content scrolls internally; desktop/mobile/zoom checks pass. |
+| Secrets/ownership | No browser keys; owned jobs/assets; Origin checks; bounded public URL access; no secrets in prompts/exports. Hosted release needs additional security gates. |
 
-Credentials are broker references, never job payloads. Follow the separate
-security review for session ownership, TTL, redaction, CSRF, SSRF, and release gates.
-All timings and token/audio limits are configurable hard limits enforced by
-handlers, not promises in model text. Proposed capture cap: 60 seconds; page
-navigation cap: 15 seconds; render cap: 120 seconds. Confirm these against the
-chosen worker host and measured provider latency before publishing expectations.
+## Input and output
 
-## Acceptance and verification
+Input: public GitHub username or repo URL, intended audience/launch goal, explicit
+model preference, optional supplied research pages, existing public URL, and usage
+recording. No cloud deployment token.
 
-- Ready static repo produces an evidenced plan without invented repairs.
-- Backend-dependent/unsupported repo yields a visible blocker, preserving the
-  existing-URL path.
-- Existing-launch evidence yields relaunch-aware copy rather than first-launch claims.
-- Each advertised adapter performs a real supported deployment before claiming
-  automation support; failed builds and timeouts remain explicit.
-- Broken interaction on an HTTP-200 site fails the interaction check.
-- Schema-invalid or unavailable-model output has bounded failure and no hidden switch.
-- Export contains no secrets; model preference is never reported as actual use.
-- Public BYOK/automation gates pass the tests in the security review.
-- UI supports keyboard use, small screens, meaningful statuses, and reduced motion.
-- Fresh-checkout frontend install/build succeeds; backend setup is documented
-  only once that implementation exists.
+Output: product/evidence brief, sources/limitations, two positioning angles,
+LinkedIn/X drafts, launch strategy, narration and video when generated, and JSON
+receipt. Automated public posting and mass generation across a profile are absent.
 
-Use PokeChess for a relaunch/showcase demonstration. Verify build and local play
-before recording. Do not promote its AI key handling before separate assessment.
-Track actual stage latency, schema failures, capture failures, and completion
-status in the demo notes. Success is one honest end-to-end run and a usable pack;
-no usage statistics or judging outcome are promised.
+## Runtime and reliability
 
-## Build order and cuts
+Node controller owns immutable profiles, evidence IDs, stage states, and fixed
+handlers. Model outputs are data; no generated shell, code, deployment, or
+publishing actions execute. Validate schema/IDs; one repair attempt; no silent
+provider fallback. Record actual provider/model on success.
 
-1. Terminal frontend shell and clearly labeled sample states — implemented.
-2. Job controller, evidence storage, safe source inspection, and selected model adapter.
-3. Existing-site verification and guided deployment plans for both providers.
-4. One real DigitalOcean local adapter run, then Vercel adapter parity.
-5. Bounded research, storyboard, capture, ElevenLabs, and renderer.
-6. Receipt/assets export, fresh-checkout setup, and demo rehearsal.
-7. Hosted credentials only if security gates pass; otherwise use local/guided flows.
+Per-stage states: idle/running/completed/failed. Preserve valid earlier results;
+source revision, selected angle, or new evidence invalidates dependent content
+and media. One operation/job, three concurrent operations total. Public research
+is untrusted input. Failures show sanitized messages and bounded retries.
 
-Drop ornamental animation, extra post styles, broad competitor search, and
-additional frameworks before evidence checks, truthful failure states, or security.
-Current integration availability, sponsor eligibility, quotas, and deployment
-access remain preflight questions, not reasons to expand scope.
+Local jobs expire after one hour or backend restart. Five jobs/session, 30 total,
+200 MB retained media, 30 mutations/minute/session. These are local safeguards,
+not a hosted multi-tenant release claim.
+
+## Architecture and integrations
+
+React/TypeScript/Vite UI → local Node/Express controller → GitHub source/discovery,
+Google Gemma or Nebius/custom model, public research access, optional ElevenLabs,
+and local FFmpeg. Session-owned jobs/evidence/media remain in memory.
+
+The app may later be hosted on Render or DigitalOcean if suitable; that is hosting
+Sudo Launch itself, not integrating deployments of users' products. Sponsor credit
+and account eligibility remain separate from scope decisions.
+
+## Priorities
+
+P0: broad source/discovery, clear onboarding, structured positioning/copy, launch
+strategy, evidence receipt, workspace fit. P1: stronger Agent-Reach research,
+reviewed voice/video polish, secure hosted BYOK. Later: CLI/MCP and more asset types.
+
+Currently source/discovery, local model adapters, launch strategy, uploaded-footage
+rendering, and receipt paths are implemented. Agent-Reach bridge and live provider
+access require further work/preflight. Do not report an unconfigured integration
+as working because a button or mock exists.
+
+## Demonstration and checks
+
+Use several source fixtures in automation and multiple real public projects in
+manual checks. PokeChess is optional demonstration input. A mentor's new repo
+must travel through the same URL/profile flow and expose its actual profile,
+source coverage, warnings, and outputs.
+
+Validate profile filtering, category-specific source files, no deployment gate,
+malicious embedded instructions/schema fields, absent research, model failure,
+owner isolation, public IP rules, real media render, and honest receipts. Browser
+checks include internal stage scrolling, persistent navigation, command palette,
+project selection, and narrow-screen layout. Paid live calls require configured
+credentials; fixture checks do not imply verified model account access.
+
+See [overview](ideation.md), [model instructions](model-harness.md),
+[UI/UX](ui-ux.md), [security](deployment-and-security.md), and
+[development/setup](../development.md).

@@ -1,18 +1,12 @@
 import { useEffect, useState } from "react";
-import type {
-  Job,
-  Capabilities,
-  ModelProvider,
-  Provider,
-} from "../shared/types";
+import type { Job, Capabilities, ModelProvider } from "../shared/types";
 import { api } from "./api";
-export type Stage = "overview" | "research" | "deploy" | "studio" | "pack";
+export type Stage = "overview" | "research" | "strategy" | "studio" | "pack";
 export default function LiveWorkspace({
   job,
   stage,
   capabilities,
   model,
-  provider,
   onJob,
   onDeleted,
   onNotice,
@@ -22,7 +16,6 @@ export default function LiveWorkspace({
   stage: Stage;
   capabilities: Capabilities | null;
   model: ModelProvider;
-  provider: Provider;
   onJob: (j: Job) => void;
   onDeleted: () => void;
   onNotice: (n: string) => void;
@@ -97,7 +90,12 @@ export default function LiveWorkspace({
   const recording = job.artifacts.find((a) => a.type === "recording");
   return (
     <section className="workspace-grid">
-      <div className="stage-content live-content">
+      <div
+        className="stage-content live-content"
+        role="region"
+        aria-label="Marketing stage content"
+        tabIndex={0}
+      >
         <div className="phase-status" role="status">
           {Object.entries(job.phases)
             .filter(([, s]) => s.state === "running" || s.state === "failed")
@@ -308,121 +306,97 @@ export default function LiveWorkspace({
             ))}
           </>
         )}
-        {stage === "deploy" && (
+        {stage === "strategy" && (
           <>
-            <span className="micro">03 / GUIDED DEPLOYMENT</span>
-            <h2>Your project. Your cloud.</h2>
+            <span className="micro">03 / LAUNCH STRATEGY</span>
+            <h2>Give the project a launch plan.</h2>
             <p className="section-intro">
-              Prepare a source-based plan, deploy on the provider’s website,
-              then check the returned URL.
+              Turn the selected audience and angle into a practical release
+              checklist. You publish the project; Sudo Launch prepares its
+              marketing.
             </p>
             <button
               className="primary"
               disabled={running || !job.inspection}
-              onClick={() => void act("plan", { provider })}
+              onClick={() => void act("strategy", {})}
             >
-              Prepare {provider === "vercel" ? "Vercel" : "DigitalOcean"} plan →
+              Prepare launch strategy →
             </button>
-            {job.deploymentPlan && (
+            {job.launchStrategy && (
               <>
                 <div className="facts">
                   <div>
-                    <span>Provider</span>
-                    <strong>{job.deploymentPlan.provider}</strong>
+                    <span>Launch type</span>
+                    <strong>{job.launchStrategy.launchType}</strong>
                   </div>
                   <div>
-                    <span>Static profile</span>
-                    <strong
-                      className={job.deploymentPlan.supported ? "" : "amber"}
-                    >
-                      {job.deploymentPlan.supported
-                        ? "Supported · review required"
-                        : "Blocked / unsupported"}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>Reviewed source</span>
+                    <span>Positioning angle</span>
                     <strong>
-                      {job.deploymentPlan.sourceRevision.slice(0, 12)}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>Build / output</span>
-                    <strong>
-                      {job.deploymentPlan.buildCommand || "Unknown"} /{" "}
-                      {job.deploymentPlan.outputDirectory || "Unknown"}
+                      {job.launchStrategy.angleTitle ||
+                        "Choose an angle in Position"}
                     </strong>
                   </div>
                 </div>
-                {job.deploymentPlan.notes.map((n) => (
-                  <p key={n} className="footnote">
-                    {n}
-                  </p>
+                {job.launchStrategy.channels.map((c) => (
+                  <div key={c.name} className="finding">
+                    <h3>{c.name}</h3>
+                    <p>{c.purpose}</p>
+                    <span className="footnote">{c.timing}</span>
+                  </div>
                 ))}
-                {job.deploymentPlan.supported && (
-                  <a
-                    className="outline external-handoff"
-                    href={job.deploymentPlan.handoffUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Review and deploy on{" "}
-                    {job.deploymentPlan.provider === "vercel"
-                      ? "Vercel"
-                      : "DigitalOcean"}{" "}
-                    ↗
-                  </a>
-                )}
+                <ol className="launch-checklist">
+                  {job.launchStrategy.checklist.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ol>
               </>
             )}
-            <form
-              className="inline-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void act("verify", { url: site });
-              }}
-            >
-              <label htmlFor="live-url">
-                Existing or newly deployed public URL
-              </label>
-              <input
-                id="live-url"
-                type="url"
-                required
-                value={site}
-                placeholder="https://your-app.example"
-                onChange={(e) => setSite(e.target.value)}
-              />
-              <button className="outline" disabled={running}>
-                Check public reachability →
-              </button>
-            </form>
-            {job.site && (
-              <div className="facts">
-                <div>
-                  <span>HTTP status</span>
-                  <strong>
-                    {job.site.httpStatus} /{" "}
-                    {job.site.reachable ? "reachable" : "failed"}
-                  </strong>
+            <details className="evidence-detail">
+              <summary>Add an existing live URL (optional)</summary>
+              <form
+                className="inline-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void act("verify", { url: site });
+                }}
+              >
+                <label htmlFor="live-url">Public project URL</label>
+                <input
+                  id="live-url"
+                  type="url"
+                  required
+                  value={site}
+                  placeholder="https://your-app.example"
+                  onChange={(e) => setSite(e.target.value)}
+                />
+                <button className="outline" disabled={running}>
+                  Check public reachability →
+                </button>
+              </form>
+              {job.site && (
+                <div className="facts">
+                  <div>
+                    <span>HTTP status</span>
+                    <strong>
+                      {job.site.httpStatus} /{" "}
+                      {job.site.reachable ? "reachable" : "failed"}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>URL</span>
+                    <strong>{job.site.finalUrl}</strong>
+                  </div>
+                  <div>
+                    <span>Interaction</span>
+                    <strong className="amber">Not checked</strong>
+                  </div>
                 </div>
-                <div>
-                  <span>Page title</span>
-                  <strong>{job.site.title || "Unavailable"}</strong>
-                </div>
-                <div>
-                  <span>Built revision</span>
-                  <strong className="amber">Unverified</strong>
-                </div>
-                <div>
-                  <span>Interaction</span>
-                  <strong className="amber">Not checked</strong>
-                </div>
-              </div>
-            )}
+              )}
+            </details>
             <p className="footnote">
-              No cloud tokens collected. No cloud resource was created by this
-              server.
+              No cloud connection, deployment, code preview, or issue execution.
+              Libraries and CLI projects can launch with their repository and
+              setup instructions.
             </p>
           </>
         )}
@@ -431,8 +405,8 @@ export default function LiveWorkspace({
             <span className="micro">04 / DEMO STUDIO</span>
             <h2>Show it actually working.</h2>
             <p className="section-intro">
-              Upload your real demo recording. Automatic browser capture is
-              pending; uploads retain user-supplied provenance.
+              Upload a real usage recording. Footage retains user-supplied
+              provenance.
             </p>
             {video ? (
               <video
@@ -525,8 +499,9 @@ export default function LiveWorkspace({
               Render MP4 →
             </button>
             <p className="footnote">
-              Up to 30 seconds, 1280×720. Silent rendering is available.
-              Captions and automatic capture are not implemented yet.
+              Up to 30 seconds, 1280×720. Silent rendering is available. Caption
+              overlays are not implemented yet. Footage is supplied by the
+              owner.
             </p>
             {!capabilities?.narration && (
               <p className="footnote">

@@ -1,19 +1,26 @@
-// Isolated test server: replace external GitHub access before importing the app.
+import { projectFiles } from "./projects";
 const sha = "a".repeat(40);
-const files: Record<string, string> = {
-  "package.json": JSON.stringify({
-    dependencies: { react: "19", vite: "6" },
-    scripts: { build: "vite build" },
-  }),
-  "src/App.tsx": "export default function App(){return <div>Hello</div>}",
-  "README.md": "A student demo",
-};
 globalThis.fetch = async (input) => {
   const url = String(input);
   let data: unknown;
   if (!url.startsWith("https://api.github.com/"))
     throw new Error("Unexpected external network request in test");
-  if (url.includes("/search/repositories")) data = { items: [] };
+  const repo = url.match(/\/repos\/[^/]+\/([^/?]+)/)?.[1] || "app";
+  const files = projectFiles[repo] || projectFiles.app;
+  if (/\/users\/[^/]+\/repos/.test(url))
+    data = Object.keys(projectFiles).map((name) => ({
+      name,
+      full_name: `fixture/${name}`,
+      description: `A ${name} project`,
+      language: name === "python" ? "Python" : "TypeScript",
+      private: false,
+      fork: false,
+      archived: false,
+      size: 20,
+      pushed_at: new Date().toISOString(),
+      homepage: null,
+    }));
+  else if (url.includes("/search/repositories")) data = { items: [] };
   else if (url.includes("/commits/")) data = { sha };
   else if (url.includes("/git/trees/"))
     data = {
@@ -25,7 +32,7 @@ globalThis.fetch = async (input) => {
       truncated: false,
     };
   else if (url.includes("/contents/")) {
-    const name = url.split("/contents/")[1].split("?")[0];
+    const name = decodeURIComponent(url.split("/contents/")[1].split("?")[0]);
     data = {
       type: "file",
       encoding: "base64",
@@ -35,7 +42,7 @@ globalThis.fetch = async (input) => {
     data = {
       private: false,
       default_branch: "main",
-      description: "Fixture app",
+      description: `Fixture ${repo}`,
       homepage: null,
     };
   return new Response(JSON.stringify(data), {
@@ -44,5 +51,3 @@ globalThis.fetch = async (input) => {
   });
 };
 await import("../../server/index");
-
-export {};

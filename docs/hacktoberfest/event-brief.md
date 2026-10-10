@@ -13,7 +13,7 @@ Updated: 2026-10-10 (UTC). Event listing and published challenge pages inspected
 | Submission platform | Project submission through the MLH event page. |
 | Multiple categories | Each published challenge page says one submission can enter every category it qualifies for. |
 | Participation | Participant confirms official check-in and a solo entry. |
-| Working repository | https://github.com/alokrajshahi04/sudo-ai; initial documentation pushed, Sudo Launch application still in planning. |
+| Working repository | https://github.com/alokrajshahi04/sudo-ai; checkpoint pushed; local Sudo Launch product marketing application implemented in part. |
 
 ## Published categories
 

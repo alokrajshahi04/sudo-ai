@@ -86,3 +86,13 @@ and cloning succeeded. The access limitation is resolved.
 
 Verified event details are recorded in [the event brief](event-brief.md).
 Current product decisions are recorded in [the Sudo Launch overview](ideation.md).
+
+
+## Mentor-driven scope update
+
+Participant supplied mentor/evaluator discussion notes recommending product
+marketing/launch positioning, GitHub profile discovery, improved onboarding,
+no target deployment integrations, and no automatic code/issues previews.
+This is participant-provided guidance, not an official judging rubric. Earlier
+Vercel/DigitalOcean API documentation remains historical research; those target
+integrations were removed. Current scope is [the overview](ideation.md).
