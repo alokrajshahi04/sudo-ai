@@ -985,8 +985,8 @@ export default function App() {
               {creating ? "Starting source review…" : "Read my project →"}
             </button>
             <p className="footnote">
-              We don’t run repository code. Work is stored locally for one hour
-              and is lost on server restart.
+              We don’t run repository code. Your work is saved on this computer
+              in SQLite and survives server restarts.
             </p>
           </form>
         )}

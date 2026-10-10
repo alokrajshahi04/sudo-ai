@@ -11,6 +11,7 @@ import type {
   ModelProvider,
 } from "../shared/types";
 import { AppError, safeError, redact } from "./errors";
+import { LaunchStore, retentionMilliseconds, sessionOwner } from "./store";
 import {
   inspect,
   parseRepo,
@@ -30,6 +31,9 @@ import { launchCalendar } from "./calendar";
 import { requireLaunchReadiness } from "./launch-readiness";
 import { captureSite, captureSchema, captureAvailable } from "./capture";
 import { makeStoryboard, promoAvailable, renderPromo } from "./promo";
+import { registerDraftRoutes } from "./drafts";
+import { registerPackRoutes, jobReceipt } from "./launch-pack";
+import { currentDrafts, selectedCopy } from "../shared/launch-copy";
 import {
   validateRecording,
   narrateWithAlignment,
@@ -43,20 +47,11 @@ const app = express();
 app.disable("x-powered-by");
 const port = Number(process.env.PORT || 3001);
 const connections = new GitHubConnections();
-const sessions = new Map<string, number>();
-const jobs = new Map<string, Job & { owner: string }>();
-const media = new Map<
-  string,
-  {
-    recording?: Buffer;
-    narration?: Buffer;
-    music?: Buffer;
-    video?: Buffer;
-    poster?: Buffer;
-    screenshot?: Buffer;
-    captions?: Buffer;
-  }
->();
+const retention = retentionMilliseconds();
+const store = new LaunchStore();
+const { sessions, jobs, media } = store.restore();
+// OAuth needs to restore the original browser cookie, but cookie secrets are never persisted.
+const oauthSessions = new Map<string, { token: string; expires: number }>();
 const busy = new Set<string>();
 const attempts = new Map<string, { time: number; count: number }>();
 let ffmpegAvailable = false;
@@ -98,31 +93,50 @@ app.use((req, res, next) => {
   // sessions are restored only after state, nonce, PKCE and identity verification.
   if (req.path === "/api/auth/github/callback") return next();
   let session = cookies.sudo_session;
+  let owner = session && /^[a-f0-9]{64}$/.test(session) ? sessionOwner(session) : "";
   if (
     !session ||
-    !sessions.has(session) ||
-    sessions.get(session)! < Date.now()
+    !sessions.has(owner) ||
+    sessions.get(owner)! <= Date.now()
   ) {
+    cleanupExpired();
     if (sessions.size >= 100)
       return res.status(429).json({ error: "Local session limit reached." });
     session = randomBytes(32).toString("hex");
+    owner = sessionOwner(session);
+  }
+  // Renew occasionally instead of writing SQLite and resetting the cookie on every poll.
+  // Existing OAuth-start requests keep their nonce cookie as the only Set-Cookie header.
+  if ((sessions.get(owner) || 0) < Date.now() + retention * 0.75) {
     res.cookie("sudo_session", session, {
       httpOnly: true,
       sameSite: "strict",
-      maxAge: 3_600_000,
+      maxAge: retention,
       path: "/",
     });
+    const expires = Date.now() + retention;
+    sessions.set(owner, expires);
+    store.saveSession(owner, expires);
   }
-  sessions.set(session, Date.now() + 3_600_000);
-  res.locals.owner = session;
+  res.locals.owner = owner;
+  res.locals.sessionToken = session;
+  // Synchronous route mutations (including future draft/pack routers) are durable
+  // before their JSON response. Long-running operations additionally save on start/end.
+  const sendJson = res.json.bind(res);
+  res.json = ((body: unknown) => {
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      for (const job of jobs.values()) if (job.owner === owner) persistJob(job);
+    }
+    return sendJson(body);
+  }) as typeof res.json;
   if (req.path.startsWith("/api/") && req.method !== "GET") {
-    const previous = attempts.get(session);
+    const previous = attempts.get(owner);
     const bucket =
       previous && Date.now() - previous.time < 60_000
         ? previous
         : { time: Date.now(), count: 0 };
     bucket.count++;
-    attempts.set(session, bucket);
+    attempts.set(owner, bucket);
     if (bucket.count > 30)
       return res
         .status(429)
@@ -137,7 +151,22 @@ function getJob(id: string, owner: string) {
     throw new AppError(404, "Launch job not found or expired.");
   return job;
 }
+export function persistJob(job: Job) {
+  const owned = jobs.get(job.id);
+  // Expiry/deletion during a worker must not recreate a deleted job or its assets.
+  if (owned && sessions.has(owned.owner)) store.saveJob(owned, media.get(job.id) || {});
+}
+export function persistMedia(jobId: string) {
+  const job = jobs.get(jobId);
+  if (job) persistJob(job);
+}
+function deleteJob(id: string) {
+  store.deleteJob(id);
+  jobs.delete(id);
+  media.delete(id);
+}
 function publicJob(job: Job & { owner: string }): Job {
+  persistJob(job);
   const { owner, ...data } = job;
   return data;
 }
@@ -151,6 +180,7 @@ function operation(job: Job, phase: Phase, work: () => Promise<void>) {
     );
   busy.add(job.id);
   job.phases[phase] = { state: "running" };
+  persistJob(job);
   void work()
     .then(() => {
       job.phases[phase] = { state: "completed" };
@@ -158,19 +188,16 @@ function operation(job: Job, phase: Phase, work: () => Promise<void>) {
     .catch((e) => {
       job.phases[phase] = { state: "failed", error: safeError(e) };
     })
-    .finally(() => busy.delete(job.id));
+    .finally(() => {
+      busy.delete(job.id);
+      if (jobs.has(job.id)) persistJob(job);
+      else media.delete(job.id);
+    })
+    .catch(() => console.error("Local launch storage could not save an operation. Check disk space and permissions."));
 }
 function capacity(bytes: Buffer, replaced?: Buffer) {
   const total = [...media.values()].reduce(
-    (n, a) =>
-      n +
-      (a.recording?.length || 0) +
-      (a.narration?.length || 0) +
-      (a.video?.length || 0) +
-      (a.music?.length || 0) +
-      (a.screenshot?.length || 0) +
-      (a.captions?.length || 0) +
-      (a.poster?.length || 0),
+    (n, a) => n + Object.values(a).reduce((bytes, asset) => bytes + (asset?.length || 0), 0),
     0,
   );
   if (total + bytes.length - (replaced?.length || 0) > 200_000_000)
@@ -186,6 +213,8 @@ function clearGenerated(job: Job) {
   job.storyboard = undefined;
   job.narrationScript = undefined;
   job.captions = undefined;
+  job.drafts = undefined;
+  clearCarousel(job);
   const assets = media.get(job.id);
   if (assets) {
     delete assets.narration;
@@ -197,6 +226,22 @@ function clearGenerated(job: Job) {
   job.artifacts = job.artifacts.filter((a) =>
     ["recording", "screenshot"].includes(a.type),
   );
+}
+function clearCarousel(job: Job) {
+  job.carousel = undefined;
+  job.phases.carousel = { state: "idle" };
+  const assets = media.get(job.id);
+  if (assets) for (const type of ["carousel-1", "carousel-2", "carousel-3", "carousel-4", "carousel-5"] as const) delete assets[type];
+  job.artifacts = job.artifacts.filter(a => !a.type.startsWith("carousel-"));
+}
+function clearNarration(job: Job) {
+  job.narrationScript = undefined;
+  job.captions = undefined;
+  job.phases.narrate = { state: "idle" };
+  job.phases.render = { state: "idle" };
+  const assets = media.get(job.id);
+  if (assets) for (const type of ["narration", "captions", "video", "poster"] as const) delete assets[type];
+  job.artifacts = job.artifacts.filter(a => !["narration", "captions", "video", "poster"].includes(a.type));
 }
 app.get("/api/capabilities", (_req, res) => {
   const providers: ModelProvider[] = ["google", "nebius", "custom"];
@@ -217,6 +262,8 @@ app.get("/api/capabilities", (_req, res) => {
     render: ffmpegAvailable,
     promo: ffmpegAvailable && chromiumAvailable,
     capture: ffmpegAvailable && recorderAvailable,
+    carousel: chromiumAvailable,
+    storage: { kind: "sqlite", retentionDays: retention / 86_400_000 },
     music: !!process.env.ELEVENLABS_API_KEY,
     githubAuth: {
       configured: !!(
@@ -238,6 +285,7 @@ app.post("/api/auth/github/start", (req, res) => {
   z.object({}).strict().parse(req.body);
   const callback = `${req.headers.origin}/api/auth/github/callback`;
   const started = connections.begin(res.locals.owner, callback);
+  oauthSessions.set(res.locals.owner, { token: res.locals.sessionToken, expires: Date.now() + 600_000 });
   res.cookie("sudo_oauth", started.nonce, {
     httpOnly: true,
     sameSite: "lax",
@@ -268,10 +316,14 @@ app.get("/api/auth/github/callback", async (req, res) => {
       input.code,
       (id) => !!sessions.get(id) && sessions.get(id)! > Date.now(),
     );
-    res.cookie("sudo_session", owner, {
+    const originalSession = oauthSessions.get(owner);
+    oauthSessions.delete(owner);
+    if (!originalSession || originalSession.expires <= Date.now())
+      throw new AppError(400, "GitHub sign-in expired. Start again from this browser.");
+    res.cookie("sudo_session", originalSession.token, {
       httpOnly: true,
       sameSite: "strict",
-      maxAge: 3_600_000,
+      maxAge: retention,
       path: "/",
     });
     res.redirect("/?github=connected");
@@ -304,8 +356,7 @@ app.post("/api/auth/github/disconnect", (req, res) => {
   // Remove already-read private source and artifacts from this local session too.
   for (const [id, job] of jobs)
     if (job.owner === res.locals.owner && job.inspection?.private) {
-      jobs.delete(id);
-      media.delete(id);
+      deleteJob(id);
     }
   res.json({ connected: false });
 });
@@ -424,7 +475,7 @@ app.post("/api/jobs", (req, res) => {
     requestedDemoUrl: input.demoUrl,
     selectedAngle: 0,
     createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    expiresAt: new Date(Date.now() + retention).toISOString(),
     phases: {
       inspect: { state: "idle" },
       analyze: { state: "idle" },
@@ -435,6 +486,7 @@ app.post("/api/jobs", (req, res) => {
       recording: { state: "idle" },
       narrate: { state: "idle" },
       render: { state: "idle" },
+      carousel: { state: "idle" },
     },
     artifacts: [],
   };
@@ -454,7 +506,7 @@ app.post("/api/jobs", (req, res) => {
 app.get("/api/jobs", (req, res) =>
   res.json(
     [...jobs.values()]
-      .filter((j) => j.owner === res.locals.owner)
+      .filter((j) => j.owner === res.locals.owner && Date.parse(j.expiresAt) > Date.now())
       .map(publicJob),
   ),
 );
@@ -465,8 +517,7 @@ app.delete("/api/jobs/:id", (req, res) => {
   const job = getJob(req.params.id, res.locals.owner);
   if (busy.has(job.id))
     throw new AppError(409, "Wait for the running operation before deleting.");
-  jobs.delete(job.id);
-  media.delete(job.id);
+  deleteJob(job.id);
   res.status(204).end();
 });
 app.post("/api/jobs/:id/inspect", (req, res) => {
@@ -624,6 +675,8 @@ app.post("/api/jobs/:id/angle", (req, res) => {
     .parse(req.body);
   if (!job.positioning) throw new AppError(409, "Generate positioning first.");
   if (job.selectedAngle !== input.index) {
+    job.drafts = undefined;
+    clearCarousel(job);
     job.launchStrategy = undefined;
     const assets = media.get(job.id);
     if (assets) {
@@ -720,21 +773,7 @@ app.post(
         409,
         "FFmpeg is required to validate and render recordings.",
       );
-    const total = [...media.values()].reduce(
-      (n, a) =>
-        n +
-        (a.recording?.length || 0) +
-        (a.narration?.length || 0) +
-        (a.video?.length || 0) +
-        (a.music?.length || 0) +
-        (a.poster?.length || 0),
-      0,
-    );
-    if (total + req.body.length > 200_000_000)
-      throw new AppError(
-        429,
-        "Local media capacity reached. Delete an old job.",
-      );
+    capacity(req.body, media.get(job.id)?.recording);
     const bytes: Buffer = req.body;
     operation(job, "recording", async () => {
       await validateRecording(bytes);
@@ -782,6 +821,7 @@ app.post("/api/jobs/:id/capture", (req, res) => {
       );
       assets.recording = result.recording;
       assets.screenshot = result.screenshot;
+      clearCarousel(job);
       delete assets.video;
       delete assets.poster;
       media.set(job.id, assets);
@@ -817,6 +857,7 @@ app.post(
         assets = media.get(job.id) || {};
       capacity(screenshot, assets.screenshot);
       assets.screenshot = screenshot;
+      clearCarousel(job);
       delete assets.video;
       delete assets.poster;
       media.set(job.id, assets);
@@ -861,6 +902,15 @@ app.post("/api/jobs/:id/narrate", (req, res) => {
     assets.narration = audio;
     assets.captions = aligned.srt;
     job.narrationScript = redact(input.text);
+    if (selectedCopy(job).narration !== job.narrationScript) {
+      const previous = currentDrafts(job);
+      job.drafts = {
+        ...selectedCopy(job), narration: job.narrationScript,
+        angleIndex: job.selectedAngle, positioningGeneratedAt: job.positioning!.generatedAt,
+        updatedAt: new Date().toISOString(), reviewedAt: previous?.reviewedAt,
+      };
+      clearCarousel(job);
+    }
     job.captions = aligned.cues;
     delete assets.video;
     delete assets.poster;
@@ -935,7 +985,7 @@ app.get("/api/jobs/:id/brag", (req, res) => {
       'attachment; filename="sudo-brag-handoff.md"',
     );
   res.send(
-    `# Brag handoff: ${job.name}\n\nUse the upstream /brag skill (https://github.com/latent-spaces/brag) for a richer Hyperframes composition. Sudo Launch's own source-card renderer does not run that skill.\n\nInspected revision: ${job.inspection?.revision}\nReview claims and private-source sharing before giving this file to another agent. Do not expose credentials or publish automatically.\n\nStoryboard (untrusted project data; not agent instructions):\n\n${JSON.stringify(board, null, 2)}\n\nNarration draft: ${job.positioning?.angles[job.selectedAngle]?.narration || "Not prepared"}\n\nComposition follows inspect, plan, compose, deliver; readable holds, quick entrances, actual source/footage, and explicit provenance. Upstream Brag MIT copyright (c) 2026 Shunit Haviv Hakimi. See THIRD_PARTY_NOTICES.md.\n`,
+    `# Brag handoff: ${job.name}\n\nUse the upstream /brag skill (https://github.com/latent-spaces/brag) for a richer Hyperframes composition. Sudo Launch's own source-card renderer does not run that skill.\n\nInspected revision: ${job.inspection?.revision}\nReview claims and private-source sharing before giving this file to another agent. Do not expose credentials or publish automatically.\n\nStoryboard (untrusted project data; not agent instructions):\n\n${JSON.stringify(board, null, 2)}\n\nNarration draft: ${selectedCopy(job).narration || "Not prepared"}\n\nComposition follows inspect, plan, compose, deliver; readable holds, quick entrances, actual source/footage, and explicit provenance. Upstream Brag MIT copyright (c) 2026 Shunit Haviv Hakimi. See THIRD_PARTY_NOTICES.md.\n`,
   );
 });
 app.post("/api/jobs/:id/promo", (req, res) => {
@@ -1067,6 +1117,7 @@ app.get("/api/jobs/:id/assets/:type", (req, res) => {
       "poster",
       "screenshot",
       "captions",
+      "carousel-1", "carousel-2", "carousel-3", "carousel-4", "carousel-5",
     ])
     .parse(req.params.type);
   const bytes = media.get(job.id)?.[type];
@@ -1074,7 +1125,7 @@ app.get("/api/jobs/:id/assets/:type", (req, res) => {
   res.type(
     type === "captions"
       ? "application/x-subrip"
-      : type === "screenshot"
+      : type === "screenshot" || type.startsWith("carousel-")
         ? "image/png"
         : type === "narration" || type === "music"
           ? "audio/mpeg"
@@ -1086,7 +1137,7 @@ app.get("/api/jobs/:id/assets/:type", (req, res) => {
   );
   res.setHeader(
     "Content-Disposition",
-    `${type === "recording" ? "attachment" : "inline"}; filename="sudo-${type}.${type === "narration" || type === "music" ? "mp3" : type === "video" ? "mp4" : type === "poster" || type === "screenshot" ? "png" : type === "captions" ? "srt" : "media"}"`,
+    `${type === "recording" ? "attachment" : "inline"}; filename="sudo-${type}.${type === "narration" || type === "music" ? "mp3" : type === "video" ? "mp4" : type === "poster" || type === "screenshot" || type.startsWith("carousel-") ? "png" : type === "captions" ? "srt" : "media"}"`,
   );
   res.setHeader("Accept-Ranges", "bytes");
   if (req.headers.range) {
@@ -1123,35 +1174,17 @@ app.get("/api/jobs/:id/receipt", (req, res) => {
     "Content-Disposition",
     'attachment; filename="sudo-launch-receipt.json"',
   );
-  res.json({
-    schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
-    job: publicJob(job),
-    actualExecution: {
-      sourceInspected: !!job.inspection,
-      sourceRevision: job.inspection?.revision || null,
-      builtRevision: null,
-      analysisModel: job.analysis
-        ? { provider: job.analysis.provider, id: job.analysis.model }
-        : null,
-      videoWorkflow: job.storyboard?.workflow || null,
-      model: job.positioning
-        ? { provider: job.positioning.provider, id: job.positioning.model }
-        : null,
-      deploymentExecuted: false,
-      research: job.research?.coverage || "Not run",
-      httpCheck: job.site || null,
-      interactionVerified: false,
-      automaticCapture: !!job.capture,
-      capture: job.capture || null,
-    },
-    limitations: [
-      "Local in-memory job expires after one hour and is lost on server restart.",
-      "Source evidence and HTTP reachability are not proof of product interactions.",
-      "Publishing is performed by the developer, not Sudo Launch.",
-      job.capture ? job.capture.coverage : "Uploaded visuals are supplied by the user; they are not independent verification.",
-    ],
-  });
+  res.json(jobReceipt(publicJob(job)));
+});
+registerDraftRoutes(app, {
+  getJob, saveJob: persistJob, isBusy: id => busy.has(id),
+  onNarrationChanged: clearNarration, onDraftsChanged: clearCarousel,
+});
+registerPackRoutes(app, {
+  getJob, publicJob: job => publicJob(job as Job & {owner: string}),
+  getMedia: id => media.get(id), saveMedia: (id, assets) => { media.set(id, assets); },
+  persist: persistJob, operation, capacity, isBusy: id => busy.has(id),
+  carouselAvailable: () => chromiumAvailable,
 });
 app.use("/api", (_req, res) =>
   res.status(404).json({ error: "API endpoint not found." }),
@@ -1187,21 +1220,30 @@ app.use(
       });
   },
 );
-setInterval(() => {
+function cleanupExpired() {
   const now = Date.now();
   connections.cleanup();
   for (const [id, job] of jobs)
     if (Date.parse(job.expiresAt) < now && !busy.has(id)) {
-      jobs.delete(id);
-      media.delete(id);
+      deleteJob(id);
     }
   for (const [id, expires] of sessions)
     if (expires < now) {
       connections.disconnect(id);
       sessions.delete(id);
       attempts.delete(id);
+      oauthSessions.delete(id);
+      store.deleteSession(id);
+      for (const [jobId, job] of jobs)
+        if (job.owner === id) {
+          jobs.delete(jobId);
+          media.delete(jobId);
+        }
     }
-}, 60_000).unref();
+  for (const [owner, entry] of oauthSessions)
+    if (entry.expires <= now) oauthSessions.delete(owner);
+}
+setInterval(cleanupExpired, 60_000).unref();
 await mediaSetup;
 app.listen(port, "127.0.0.1", () =>
   console.log(`Sudo Launch local API: http://127.0.0.1:${port}`),

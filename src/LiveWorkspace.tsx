@@ -3,6 +3,9 @@ import type { Job, Capabilities, ModelProvider } from "../shared/types";
 import { launchEvidence } from "../shared/evidence";
 import Readiness from "./Readiness";
 import CaptureControls from "./CaptureControls";
+import DraftEditor from "./DraftEditor";
+import InstagramPack from "./InstagramPack";
+import { selectedCopy, currentDrafts } from "../shared/launch-copy";
 import { api, getJob } from "./api";
 export type Stage = "overview" | "research" | "strategy" | "studio" | "pack";
 export default function LiveWorkspace({
@@ -105,14 +108,16 @@ export default function LiveWorkspace({
     pending ||
     uploading;
   const chosen = job.positioning?.angles[job.selectedAngle];
+  const savedCopy = selectedCopy(job);
+  const [draftDirty, setDraftDirty] = useState(false);
   useEffect(() => {
     if (stage === "research" && job.positioning)
       storiesRef.current?.scrollIntoView({ block: "start" });
   }, [job.positioning?.generatedAt]);
   useEffect(() => {
-    setNarration(job.narrationScript || chosen?.narration || "");
+    setNarration(job.narrationScript || savedCopy.narration || "");
     setApproved(false);
-  }, [job.positioning?.generatedAt, job.selectedAngle, job.narrationScript]);
+  }, [job.positioning?.generatedAt, job.selectedAngle, job.narrationScript, currentDrafts(job)?.updatedAt]);
   useEffect(() => {
     if (job.inspection?.homepage && !site) setSite(job.inspection.homepage);
   }, [job.inspection]);
@@ -122,9 +127,10 @@ export default function LiveWorkspace({
       `# ${job.name} — launch kit`,
       "Drafts for review. Verify claims before publishing.",
       `## Positioning\n${chosen.title}\n\nAudience: ${chosen.audience}\n\n${chosen.rationale}`,
-      `## LinkedIn draft\n${chosen.linkedin}`,
-      `## X draft\n${chosen.x}`,
-      `## ${job.narrationScript ? "Generated narration script" : "Narration draft"}\n${job.narrationScript || chosen.narration}`,
+      `## LinkedIn draft\n${savedCopy.linkedin}`,
+      `## X draft\n${savedCopy.x}`,
+      `## Instagram caption\n${savedCopy.instagram}`,
+      `## ${job.narrationScript ? "Generated narration script" : "Narration draft"}\n${job.narrationScript || savedCopy.narration}`,
     ];
     if (job.launchStrategy) {
       sections.push(
@@ -165,6 +171,23 @@ export default function LiveWorkspace({
     onNotice(
       "Launch kit downloaded. Drafts still need your review; media downloads are separate.",
     );
+  }
+  async function downloadZip() {
+    setPending(true);
+    setError("");
+    try {
+      const calendarDate = scheduleTime ? new Date(scheduleTime) : null;
+      if (calendarDate && (!Number.isFinite(calendarDate.getTime()) || calendarDate.getTime() <= Date.now()))
+        throw new Error("Choose a future launch reminder time, or clear it before downloading.");
+      const calendarQuery = calendarDate ? `?start=${encodeURIComponent(calendarDate.toISOString())}` : "";
+      const response = await fetch(`/api/jobs/${job.id}/pack.zip${calendarQuery}`, { credentials: "same-origin", signal: AbortSignal.timeout(60000) });
+      if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || "Launch ZIP could not be created."); }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a"); link.href = url; link.download = `${job.name.replace(/[^a-z0-9-]/gi,"-")}-launch-kit.zip`; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      onNotice("Complete launch kit downloaded. Review it before publishing.");
+    } catch (e) { setError(e instanceof Error ? e.message : "ZIP download failed."); }
+    finally { setPending(false); }
   }
   async function act(path: string, body: unknown) {
     setPending(true);
@@ -1017,10 +1040,10 @@ export default function LiveWorkspace({
               </div>
               <button
                 className="primary"
-                disabled={!chosen || running}
+                disabled={!chosen || running || draftDirty}
                 onClick={downloadKit}
               >
-                Download launch kit ↓
+                Download text draft ↓
               </button>
             </header>
             {chosen ? (
@@ -1033,37 +1056,16 @@ export default function LiveWorkspace({
                   </div>
                   <button
                     className="text-button"
+                    disabled={draftDirty}
                     onClick={() => onStage("research")}
                   >
                     Change story →
                   </button>
                 </div>
-                <div className="pack-draft-grid">
-                  {(["linkedin", "x"] as const).map((channel) => (
-                    <article className="draft-card" key={channel}>
-                      <div className="draft-card-head">
-                        <h3>
-                          {channel === "linkedin" ? "LinkedIn post" : "X post"}
-                        </h3>
-                        <span className="footnote">
-                          Draft · review before sharing
-                        </span>
-                      </div>
-                      <p className="preserve-lines">{chosen[channel]}</p>
-                      <button
-                        className="outline compact-action"
-                        onClick={() =>
-                          void copy(
-                            chosen[channel],
-                            channel === "linkedin" ? "LinkedIn" : "X",
-                          )
-                        }
-                      >
-                        Copy {channel === "linkedin" ? "LinkedIn" : "X"} draft →
-                      </button>
-                    </article>
-                  ))}
-                </div>
+                <DraftEditor job={job} busy={running} onJob={onJob} onNotice={onNotice} onDirtyChange={setDraftDirty}/>
+                {draftDirty && <p className="footnote" role="status">Save or discard your edits to update downloads, Instagram slides and reminders.</p>}
+                <button className="primary" disabled={running || draftDirty} onClick={() => void downloadZip()}>Download complete ZIP ↓</button>
+                <InstagramPack job={job} busy={running || draftDirty} available={capabilities?.carousel ?? !!capabilities?.promo} onGenerate={() => void act("carousel", {})}/>
                 <section className="sharing-plan">
                   <div className="section-heading">
                     <h3>Your launch plan</h3>
@@ -1139,7 +1141,7 @@ export default function LiveWorkspace({
                 />
                 <button
                   className="outline"
-                  disabled={!scheduleTime}
+                  disabled={!scheduleTime || draftDirty || running}
                   onClick={() => {
                     const date = new Date(scheduleTime);
                     if (
@@ -1354,6 +1356,7 @@ export default function LiveWorkspace({
                         className="outline"
                         disabled={
                           running ||
+                          draftDirty ||
                           !approved ||
                           !job.positioning ||
                           !capabilities?.narration ||
@@ -1456,7 +1459,7 @@ export default function LiveWorkspace({
                   <button
                     className="primary"
                     disabled={
-                      running || !job.storyboard || !capabilities?.promo
+                      running || draftDirty || !job.storyboard || !capabilities?.promo
                     }
                     onClick={() =>
                       void act("promo", {
@@ -1585,8 +1588,8 @@ export default function LiveWorkspace({
             </div>
             <div className="context-item">
               <span>Job expiry</span>
-              <strong>{new Date(job.expiresAt).toLocaleTimeString()}</strong>
-              <small>In-memory; lost on restart</small>
+              <strong>{new Date(job.expiresAt).toLocaleString()}</strong>
+              <small>{capabilities?.storage ? `Saved locally in SQLite · ${capabilities.storage.retentionDays}-day retention` : "Local job storage"}</small>
             </div>
             <button className="outline" onClick={onSettings}>
               Configure preferences ↗

@@ -461,10 +461,10 @@ for (const name of ["community-tool", "release-cli"]) {
         }),
       ).toBeVisible();
       await expect(
-        page.getByText("LinkedIn draft for story 2", { exact: true }),
+        page.getByLabel("LinkedIn post", { exact: true }),
       ).toBeVisible();
       await expect(
-        page.getByText("X draft for story 2", { exact: true }),
+        page.getByLabel("X post", { exact: true }),
       ).toBeVisible();
       expect(backend.calls).toContain("strategy");
       expect(
@@ -472,7 +472,7 @@ for (const name of ["community-tool", "release-cli"]) {
       ).toBeNull();
       await page.screenshot({ path: testInfo.outputPath("04-pack.png") });
       const waiting = page.waitForEvent("download");
-      await page.getByRole("button", { name: "Download launch kit ↓" }).click();
+      await page.getByRole("button", { name: "Download text draft ↓" }).click();
       const download = await waiting;
       const kit = await readFile((await download.path())!, "utf8");
       expect(kit).toContain("LinkedIn draft for story 2");
@@ -798,7 +798,7 @@ test("promo storyboard gates rendering; music failure preserves the text pack", 
     "Music access is unavailable",
   );
   await expect(
-    page.getByText("LinkedIn draft for story 1", { exact: true }),
+    page.getByLabel("LinkedIn post", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Render launch promo →" }).click();
   await expect(

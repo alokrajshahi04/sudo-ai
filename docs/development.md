@@ -37,7 +37,7 @@ Public profile discovery reads up to 100 recent public owned repos. Connected di
 
 ### Model diagnostics
 
-Each attempt logs task/provider/model, elapsed time, HTTP status, finish reason, available token counts, and bounded validation field errors. Logs appear in the API terminal and ignored `.local/model-calls.jsonl`, with one rotated file at approximately 256 KB. Files use owner-only permissions; prompts, source excerpts, model responses, provider error bodies, headers and credentials are excluded. Diagnostics survive API restarts, while jobs do not.
+Each attempt logs task/provider/model, elapsed time, HTTP status, finish reason, available token counts, and bounded validation field errors. Logs appear in the API terminal and ignored `.local/model-calls.jsonl`, with one rotated file at approximately 256 KB. Files use owner-only permissions; prompts, source excerpts, model responses, provider error bodies, headers and credentials are excluded. Diagnostics and SQLite jobs survive API restarts.
 
 Nebius requests strict JSON-schema output for analysis and positioning, with enums of actual evidence IDs and source quote options. Local schema, citation and verbatim-quote validation still apply. For `zai-org/GLM-5.3-Flash`, the harness sets `reasoning_effort: "low"` and an 8,192-token completion budget. The model supports `low`, `high`, and `max`; unsupported values such as `none` revert to `max` ([model card](https://huggingface.co/zai-org/GLM-5.3-Flash)). Live testing found a default-reasoning request spent all 8,192 tokens on reasoning without final JSON. Schema limits and known evidence IDs remain mandatory, with at most one repair. Google receives 4,096 output tokens initially and 6,144 on repair. Each model request times out after 60 seconds.
 
@@ -75,10 +75,13 @@ The renderer adapts [Brag](https://github.com/latent-spaces/brag)'s inspect/plan
 | `GET /api/jobs/:id/brag` | Upstream Brag handoff Markdown. |
 | `POST /api/jobs/:id/render` | Recording-only render, up to 30s, optional voice. |
 | `GET /api/jobs/:id/assets/:type`, `/receipt` | Owned media / actual-execution receipt. |
+| `POST /api/jobs/:id/drafts`, `/drafts/revert` | Reviewed saved copy / restore generated drafts; exact story revision and optimistic edit version required. |
+| `POST /api/jobs/:id/carousel` | Five PNG slides from current story/copy, optional genuine screenshot; no new model call. |
+| `GET /api/jobs/:id/pack.zip?start=ISO` | Current copy and available media in a bounded ZIP; optional future-date ICS. |
 
 ## Local boundaries
 
-Jobs/media expire after one hour and disappear on restart/deletion. Five jobs/session, 30 jobs total, three concurrent operations, 200 MB retained media, 30 mutations/minute/session. The UI resumes owned jobs after refresh; first-visit hints and explicit model preference use localStorage, never keys.
+Jobs, saved copy and media survive API restarts in local SQLite and expire after seven days by default; deletion removes associated assets. Five jobs/session, 30 jobs total, three concurrent operations, 200 MB retained media, 30 mutations/minute/session. The UI resumes owned jobs after refresh; first-visit hints and explicit model preference use localStorage, never keys.
 
 Host/Origin checks and HttpOnly Strict cookies protect local requests. Public page checks enforce HTTPS/443, reject private/reserved IPs, pin validated DNS and revalidate redirects. Source/pages/model output are untrusted data and cannot authorize tools. Model JSON/evidence validation permits one targeted repair, then fails visibly with no provider fallback.
 
@@ -95,3 +98,11 @@ Live checks on 2026-10-10: both Gemma 4 variants responded; the 26B A4B model pr
 Public discovery was also verified through the live browser for `alokrajshahi04` (23 eligible projects, no JavaScript errors). API-outage recovery is covered at all three viewport sizes.
 
 Current evaluation checkpoint: 31 backend checks and 45 browser checks passed, with additional media/UX checks after refinement. A live PokeChess run with Nebius completed five source-backed findings, two stories, approved four-click public capture, ElevenLabs aligned voice and a 25s 1080×1920 MP4 with an audio track and SRT. The final run reported no JavaScript errors; captions match the approved script after apostrophe normalization. Public discovery returned 23 eligible projects; a second live Tolti inspection identified starter content. These results do not certify the demo project's AI/multiplayer behavior. See [demo guide](demo-guide.md) for backup artifacts and remaining owner setup.
+
+## Saved memory and exports
+
+Use Node 22.13+ for built-in `node:sqlite` (tested on 22.22). `SUDO_DB_PATH` defaults to `.local/sudo-launch.sqlite`; `SUDO_RETENTION_DAYS` defaults to 7 and accepts 1–365. Keep this database private: it contains inspected source, drafts and media. Cookie secrets are not stored; a SHA-256 owner identifier ties jobs to the original browser. Provider keys and OAuth/local-token connections stay out of SQLite. Reconnect GitHub after an API restart to make new private-source requests. Existing private job content remains owner-scoped until disconnect, deletion or expiry.
+
+Draft saves require the exact selected story revision, `expectedUpdatedAt` (null for the first save), all four channel texts and `reviewed: true`. Polling never overwrites unsaved editor text. Saved narration changes invalidate voice/captions/video; other copy edits preserve them. Approved narration edited in the video form becomes the saved narration draft. Story, screenshot or source changes invalidate the carousel. ZIPs omit stale derivatives and list missing outputs in `manifest.json`; they do not trigger new paid generation.
+
+SQLite uses transactions, foreign-key deletion, owner-only file permissions and seven-day default retention. Interrupted operations restore as failed with explicit retry guidance. Clearing browser cookies loses access to existing owned jobs. This local persistence is not cross-user authentication or a public hosted service.

@@ -18,7 +18,7 @@ patterns but cannot guarantee arbitrary public source is secret-free.
 
 Server binds to loopback, checks Host/Origin, and uses HttpOnly SameSite Strict
 session cookies. Every job, receipt, and asset checks session ownership. Jobs/media
-expire after one hour and disappear on restart/deletion. Operations have concurrency,
+persist through restarts in ignored local SQLite and expire after seven days by default. Deletion cascades to media; cookie secrets are hashed before storage. The database contains private project content and has owner-only permissions, but is not encrypted. Provider and GitHub tokens are excluded; GitHub reconnect is needed after restart. Operations have concurrency,
 rate, response-size, media-size, and time bounds.
 
 Public page checks validate HTTPS/443 and resolved IPv4/IPv6 destinations, reject

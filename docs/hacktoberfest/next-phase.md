@@ -26,7 +26,7 @@ For reels, avoid relying on long paragraphs or import statements as the main cre
 
 The core upgrades are implemented: source-quoted AI readiness suggestions with explicit review/deployment/prototype gates; approved deployed-URL capture; screenshot uploads; portrait/landscape composition; ElevenLabs timestamped narration, burned captions and SRT; and dated ICS reminders. A real PokeChess browser run completed source → GLM stories → capture → ElevenLabs voice → 25s portrait MP4, with downloadable artifacts and no JavaScript errors. See [demo guide](../demo-guide.md) for the current steps and limitations.
 
-Instagram-specific copy/carousel, a single ZIP, one combined generation action, brand memory and public hosting remain roadmap work. Agent-Reach research is not integrated; its README provides no native scheduling API. Calendar reminders are the implemented scheduling feature and require manual social publication.
+Saved editable copy, Instagram captions/five-slide carousel, one ZIP and local SQLite memory are implemented. A combined generation action, cross-release brand profiles and public hosting remain roadmap work. Agent-Reach research is not integrated; its README provides no native scheduling API. Calendar reminders are the implemented scheduling feature and require manual social publication.
 
 Use the remaining event time for presenting the actual core flow, reviewing claims, account setup, output quality and pitch rehearsal. Avoid depending on unconfigured OAuth or claiming future hosted features as implemented.
 
@@ -40,7 +40,7 @@ A strong self-demonstration is **launch Sudo Launch using Sudo Launch**, with ac
 
 ## After the hackathon
 
-1. **Public beta:** authenticated accounts, durable jobs/artifacts, encrypted per-user keys, read-only selected-repository GitHub App, deletion/expiry, rate/quota controls and worker isolation. Preserve local/BYOK open-source use. Pick the repo license and document contribution/setup clearly.
+1. **Public beta:** authenticated accounts, durable jobs/artifacts, encrypted per-user keys, read-only selected-repository GitHub App, deletion/expiry, rate/quota controls and worker isolation. Preserve local/BYOK open-source use. GPL-3.0-only is selected; retain third-party attribution and document contribution/setup clearly.
 2. **Brand memory:** save audience, tone, CTA, examples and actual product claims so future releases stay coherent. Never fabricate testimonials or traction.
 3. **Release-to-launch:** compare revisions or release notes, then draft “what changed” assets with owner review. This gives developers a recurring reason to return.
 4. **Launch experiments:** offer a few hooks and a small owner-published sequence, record actual results, and suggest the next experiment. Add channel integrations only when there is demand and platform support.

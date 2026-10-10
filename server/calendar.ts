@@ -1,4 +1,5 @@
 import type { Job } from "../shared/types";
+import { selectedCopy } from "../shared/launch-copy";
 import { AppError } from "./errors";
 export function launchCalendar(job: Job, start: Date) {
   const angle = job.positioning?.angles[job.selectedAngle];
@@ -35,13 +36,14 @@ export function launchCalendar(job: Job, start: Date) {
     }
     return result + row;
   };
+  const copy = selectedCopy(job);
   const posts = [
-    { channel: "LinkedIn", offset: 0, text: angle.linkedin },
-    { channel: "X", offset: 30 * 60_000, text: angle.x },
+    { channel: "LinkedIn", offset: 0, text: copy.linkedin },
+    { channel: "X", offset: 30 * 60_000, text: copy.x },
     {
       channel: "Instagram",
       offset: 24 * 3600_000,
-      text: angle.title + "\n\n" + angle.linkedin,
+      text: copy.instagram,
     },
     {
       channel: "Feedback follow-up",

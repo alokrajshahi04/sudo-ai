@@ -54,8 +54,7 @@ model preference, optional supplied research pages, existing public URL, and usa
 recording. No cloud deployment token.
 
 Output: product/evidence brief, sources/limitations, two positioning angles,
-LinkedIn/X drafts, launch strategy, narration and video when generated, and JSON
-receipt. Automated public posting and mass generation across a profile are absent.
+saved editable LinkedIn/X/Instagram drafts, five-slide carousel, launch strategy, narration and video when generated, JSON receipt and one ZIP containing available current assets. Automated public posting and mass generation across a profile are absent.
 
 ## Runtime and reliability
 
@@ -69,7 +68,7 @@ source revision, selected angle, or new evidence invalidates dependent content
 and media. One operation/job, three concurrent operations total. Public research
 is untrusted input. Failures show sanitized messages and bounded retries.
 
-Local jobs expire after one hour or backend restart. Five jobs/session, 30 total,
+Local jobs, copy and media survive backend restarts in SQLite and expire after seven days by default. Five jobs/session, 30 total,
 200 MB retained media, 30 mutations/minute/session. These are local safeguards,
 not a hosted multi-tenant release claim.
 
@@ -77,7 +76,7 @@ not a hosted multi-tenant release claim.
 
 React/TypeScript/Vite UI → local Node/Express controller → GitHub source/discovery,
 Google Gemma or Nebius/custom model, public research access, optional ElevenLabs,
-and local Chromium/FFmpeg. Session-owned jobs/evidence/media remain in memory.
+and local Chromium/FFmpeg. Session-owned jobs/evidence/media are persisted in ignored local SQLite. Provider keys and GitHub tokens are excluded.
 
 The app may later be hosted on Render or DigitalOcean if suitable; that is hosting
 Sudo Launch itself, not integrating deployments of users' products. Sponsor credit

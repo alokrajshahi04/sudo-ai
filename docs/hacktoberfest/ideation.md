@@ -21,7 +21,7 @@ The differentiator is source-grounded marketing with honest product status: a st
 | Launch plan | Reviewable channels/checklist; optional public URL reachability does not verify features or launch history. |
 | Video | Brag-inspired storyboard; source visuals, normalized uploaded screenshots, user footage or approved deployed-URL capture. Portrait/landscape, approved ElevenLabs voice/music, aligned burned captions/SRT, Chromium + FFmpeg MP4 and poster. Brag handoff export supports the upstream skill; Hyperframes does not run here. |
 | Calendar | Dated ICS reminders containing reviewed drafts; posts are published manually. |
-| Local use | React terminal-inspired web app + Node API. Keys in ignored server `.env`; OAuth tokens scoped to one browser session. One-hour in-memory jobs. |
+| Local use | React terminal-inspired web app + Node API. Keys in ignored server `.env`; OAuth tokens scoped to one browser session. Session-owned jobs, reviewed copy and media in local SQLite with seven-day default retention. |
 
 First visit explains the product and `/` shortcut. Three guided screens—Project brief → Launch story → Launch pack—keep the primary decisions visible. Source details, readiness findings and optional studio expand within one document rather than competing scroll panes.
 

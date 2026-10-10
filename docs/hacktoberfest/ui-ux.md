@@ -103,3 +103,9 @@ tests separately exercise real endpoints, ownership, brief correction, source
 fixtures and invalidation. Gemma analysis/positioning and ElevenLabs voice/music have passed separate live checks; OAuth registration and Agent-Reach remain separate work.
 
 API startup failures show a visible connection message and Retry action inside dialogs. The app retries automatically; public discovery remains usable without GitHub sign-in or a successful model-capability check. A transient backend restart must not permanently disable project discovery.
+
+## Saved launch copy and Instagram pack
+
+The pack step contains one four-channel editor: LinkedIn, X, Instagram and narration. Character counters, a claim-review checkbox, save/discard/revert and saved timestamps make the current version explicit. Unsaved edits disable ZIP, calendar and carousel exports, with an explanation. Server revision checks prevent another tab from silently overwriting a newer save.
+
+A five-slide 4:5 carousel follows the editor, with numbered slide selection, individual PNG downloads and the saved caption. Screenshot-backed proof stays visibly distinct from source-only fallback. The complete ZIP is the main export, with Markdown and individual media available. Run details explain local SQLite retention and resume behavior.

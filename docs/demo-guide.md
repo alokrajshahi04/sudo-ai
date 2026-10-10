@@ -25,9 +25,9 @@ Account/quota errors are visible. Manual brief editing remains available when mo
 
 Current downloaded proof files live in ignored `.local/evaluation/`: `video.mp4`, `poster.png`, `recording.webm`, `screenshot.png`, `narration.mp3`, `captions.srt`, `receipt.json`, `launch-calendar.ics`, and UI screenshots. This folder is local verification output, not committed demo fixtures. `browser-session.json` is sensitive and must not be shared.
 
-Jobs expire after one hour and disappear on API restart. Before presenting, run `npm run build`, start `npm start` for a stable built UI, create a fresh session and download its outputs. Keep the video open locally as a network-failure backup. Keep `.env`, session files and API terminal details out of screen sharing.
+Jobs and media persist through API restarts in local SQLite for seven days by default. Use the same browser session to reopen them; interrupted operations need an explicit retry. Before presenting, run `npm run build`, start `npm start` for a stable built UI, create a fresh session and download its outputs. Keep the video open locally as a network-failure backup. Keep `.env`, session files and API terminal details out of screen sharing.
 
-User setup remaining: GitHub OAuth (only needed for connected/private access), release license choice, review account quotas and prepare the pitch. See [todo.md](../todo.md). Public profile discovery and public repository entry do not require OAuth.
+User setup remaining: GitHub OAuth (only needed for connected/private access), review account quotas and prepare the pitch. See [todo.md](../todo.md). Public profile discovery and public repository entry do not require OAuth.
 
 ## Product boundaries and next release
 

@@ -8,7 +8,8 @@ export type Phase =
   | "verify"
   | "recording"
   | "narrate"
-  | "render";
+  | "render"
+  | "carousel";
 export type State = "idle" | "running" | "completed" | "failed";
 export interface Evidence {
   id: string;
@@ -95,6 +96,17 @@ export interface LaunchBrief {
   goal: string;
   context: string;
 }
+export interface LaunchDrafts {
+  linkedin: string;
+  x: string;
+  instagram: string;
+  narration: string;
+  updatedAt: string;
+  reviewedAt?: string;
+  angleIndex: number;
+  positioningGeneratedAt: string;
+}
+export type ArtifactType = "recording" | "narration" | "music" | "video" | "poster" | "screenshot" | "captions" | "carousel-1" | "carousel-2" | "carousel-3" | "carousel-4" | "carousel-5";
 export interface Job {
   id: string;
   repository: string;
@@ -107,6 +119,8 @@ export interface Job {
   launchMode?: "live" | "prototype" | "source";
   readinessReviewedAt?: string;
   narrationScript?: string;
+  drafts?: LaunchDrafts;
+  carousel?: { generatedAt: string; copyFingerprint: string; slideCount: 5; format: "1080x1350" };
   captions?: { start: number; end: number; text: string }[];
   capture?: {
     url: string;
@@ -130,14 +144,7 @@ export interface Job {
   launchStrategy?: LaunchStrategy;
   site?: SiteCheck;
   artifacts: {
-    type:
-      | "recording"
-      | "narration"
-      | "music"
-      | "video"
-      | "poster"
-      | "screenshot"
-      | "captions";
+    type: ArtifactType;
     url: string;
     provenance: string;
   }[];
@@ -150,6 +157,8 @@ export interface Capabilities {
   music?: boolean;
   promo?: boolean;
   capture?: boolean;
+  carousel?: boolean;
+  storage?: { kind: "sqlite"; retentionDays: number };
   githubAuth?: {
     configured: boolean;
     localTokenAvailable: boolean;
