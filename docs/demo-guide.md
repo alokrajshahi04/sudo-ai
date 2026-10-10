@@ -7,8 +7,8 @@ Pitch: **Developers can build fast but struggle to explain and share what they b
 1. Open http://localhost:5173. Start from GitHub profile discovery or paste any accessible repository. PokeChess is the prepared hero example: `https://github.com/alokrajshahi04/pokechess`, demo `https://pokechess1.vercel.app`.
 2. Show source coverage and a concrete readiness finding with a quote, recommendation and source link. These are suggestions to verify, not certified bugs. Copy the coding-agent handoff if asked how developers act on them.
 3. Acknowledge the findings, review the proposed audience/goal, then confirm the brief. Web apps require a reachable demo or an explicit prototype launch. Show that CLI/library projects use the same pipeline without needing a website.
-4. Generate two launch stories with the explicitly selected model. For venue resilience, skip optional research in the live walkthrough. Choose a story, show its specific LinkedIn/X drafts and launch plan.
-5. Expand **Create a launch video**. Choose portrait, record the deployed demo with reviewed exact-label clicks (for PokeChess: `PRESS START`, `Skip`, `Local PvP Pass & Play Mode`, `Start Battle ⚔️`; turn scrolling off), prepare its storyboard, review the short narration and approve ElevenLabs generation. Render with generated voice and aligned captions. Show the MP4 and download the kit, media, receipt and optional calendar reminders.
+4. Generate two launch stories with the explicitly selected model. For venue resilience, skip optional research in the live walkthrough. Choose a story, edit the LinkedIn/X/Instagram/narration drafts, review the claims and save. Show that polling and reload preserve the saved copy.
+5. Expand **Create a launch video**. Choose portrait, record the deployed demo with reviewed exact-label clicks (for PokeChess: `PRESS START`, `Skip`, `Local PvP Pass & Play Mode`, `Start Battle ⚔️`; turn scrolling off), prepare its storyboard, review the short narration and approve ElevenLabs generation. Render with generated voice and aligned captions. Show the MP4, generate the five-slide carousel, review its screenshot-backed proof slide, and download the complete ZIP. Choose a future launch time to include optional manual calendar reminders.
 
 Account/quota errors are visible. Manual brief editing remains available when model suggestions fail; no fabricated fallback drafts are inserted. Never describe prerecorded output as the result of a live request.
 
@@ -34,3 +34,11 @@ User setup remaining: GitHub OAuth (only needed for connected/private access), r
 The current release runs locally with server `.env` credentials. Public hosted credential entry needs durable storage, authentication, encrypted per-user keys, read-only repository permissions and isolated media workers. Render/DigitalOcean credits can support that later. No user-project deployments, automatic repository edits or social publication are performed.
 
 A useful post-event direction is release-to-launch: reuse a confirmed audience and tone, compare releases, draft what changed, and measure whether developers actually share the resulting pack. Viral reach and hackathon prizes are not guaranteed outcomes.
+
+## Launch Sudo Launch with itself
+
+The prepared self-launch uses `https://github.com/alokrajshahi04/sudo-ai` at commit `c83183d`, explicitly in prototype mode because the app runs locally. Its audience is student/solo developers with built-but-unshared projects; the call to action is to try the local app and give feedback. Review notes acknowledge that bounded source findings can be speculative and local verification happened separately.
+
+Files are in ignored `.local/sudo-launch-demo/`: `sudo-launch-kit.zip`, `video.mp4`, all five `carousel-*.png`, the screenshot, narration, SRT, execution receipt and a calendar. The recording shows the actual app's draft editor, project brief, story and carousel review. The public capture endpoint still rejects localhost; this own-app recording is uploaded through the existing footage route. There is no hosted-user signup claim and no automatic social publication.
+
+The demo directory also contains private browser state and job metadata for resuming verification. Share the ZIP/video/carousel only; never share the entire directory or `browser-session.json`. The ZIP includes the inspected source revision and actual approved copy/model/media provenance.

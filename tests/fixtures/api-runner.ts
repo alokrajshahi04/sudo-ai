@@ -1,8 +1,28 @@
 import { projectFiles } from "./projects";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+// Fixture processes must never read or write the developer's persistent launch memory.
+if (!process.env.SUDO_DB_PATH) {
+  const directory = mkdtempSync(join(tmpdir(), "sudo-api-fixture-"));
+  process.env.SUDO_DB_PATH = join(directory, "launch.sqlite");
+  process.once("SIGTERM", () => { rmSync(directory, { recursive: true, force: true }); process.exit(0); });
+}
 const sha = "a".repeat(40);
 globalThis.fetch = async (input, init) => {
   const url = String(input);
   let data: unknown;
+  if (url.startsWith("https://api.elevenlabs.io/v1/text-to-speech/") && process.env.SUDO_FIXTURE_AUDIO_PATH) {
+    const text = String(JSON.parse(String(init?.body)).text), characters = [...text];
+    return new Response(JSON.stringify({
+      audio_base64: readFileSync(process.env.SUDO_FIXTURE_AUDIO_PATH).toString("base64"),
+      normalized_alignment: {
+        characters,
+        character_start_times_seconds: characters.map((_, i) => i * 0.02),
+        character_end_times_seconds: characters.map((_, i) => (i + 1) * 0.02),
+      },
+    }));
+  }
   if (url === "https://github.com/login/oauth/access_token")
     return new Response(
       JSON.stringify({ access_token: "fixture-private-token" }),

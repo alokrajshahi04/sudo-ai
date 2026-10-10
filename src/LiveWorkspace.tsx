@@ -1041,9 +1041,9 @@ export default function LiveWorkspace({
               <button
                 className="primary"
                 disabled={!chosen || running || draftDirty}
-                onClick={downloadKit}
+                onClick={() => void downloadZip()}
               >
-                Download text draft ↓
+                Download complete ZIP ↓
               </button>
             </header>
             {chosen ? (
@@ -1064,7 +1064,7 @@ export default function LiveWorkspace({
                 </div>
                 <DraftEditor job={job} busy={running} onJob={onJob} onNotice={onNotice} onDirtyChange={setDraftDirty}/>
                 {draftDirty && <p className="footnote" role="status">Save or discard your edits to update downloads, Instagram slides and reminders.</p>}
-                <button className="primary" disabled={running || draftDirty} onClick={() => void downloadZip()}>Download complete ZIP ↓</button>
+                <button className="text-button" disabled={running || draftDirty} onClick={downloadKit}>Download text draft ↓</button>
                 <InstagramPack job={job} busy={running || draftDirty} available={capabilities?.carousel ?? !!capabilities?.promo} onGenerate={() => void act("carousel", {})}/>
                 <section className="sharing-plan">
                   <div className="section-heading">

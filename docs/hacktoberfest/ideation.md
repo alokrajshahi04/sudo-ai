@@ -20,6 +20,8 @@ The differentiator is source-grounded marketing with honest product status: a st
 | Research | Bounded public GitHub search plus up to three supplied public links. Private jobs default to research disabled. Agent-Reach/social research remains planned. |
 | Launch plan | Reviewable channels/checklist; optional public URL reachability does not verify features or launch history. |
 | Video | Brag-inspired storyboard; source visuals, normalized uploaded screenshots, user footage or approved deployed-URL capture. Portrait/landscape, approved ElevenLabs voice/music, aligned burned captions/SRT, Chromium + FFmpeg MP4 and poster. Brag handoff export supports the upstream skill; Hyperframes does not run here. |
+| Saved launch kit | Editable LinkedIn/X/Instagram/narration with review markers and revision checks; one ZIP of current copy, available media, strategy, receipt and optional calendar. |
+| Instagram | Five 1080×1350 slides from the chosen story, brief and source summary; optional genuine screenshot. No extra model call; creator reviews and publishes. |
 | Calendar | Dated ICS reminders containing reviewed drafts; posts are published manually. |
 | Local use | React terminal-inspired web app + Node API. Keys in ignored server `.env`; OAuth tokens scoped to one browser session. Session-owned jobs, reviewed copy and media in local SQLite with seven-day default retention. |
 

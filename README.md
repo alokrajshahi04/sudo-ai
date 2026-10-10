@@ -4,7 +4,7 @@
 
 Sudo Launch helps student and solo developers explain, demonstrate and share projects that would otherwise stay in a repo. Paste a GitHub URL or discover projects on your profile, review concrete source-backed suggestions, confirm the audience, and choose a launch story. Get saved editable LinkedIn/X/Instagram drafts, a five-slide carousel, a sharing plan and an optional 25-second video in one ZIP.
 
-![Two reviewed launch stories in Sudo Launch](docs/assets/launch-stories.png)
+![Sudo Launch reviewing its own Instagram launch pack](docs/assets/self-launch-pack.png)
 
 ## What it does
 

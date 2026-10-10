@@ -11,3 +11,12 @@ No credentials belong in Git commits, screenshots, launch copy, or the command b
 - [ ] **Public hosting later:** use Render/DigitalOcean credits after adding production HTTPS, durable sessions/storage, encrypted per-user credentials, and a read-only GitHub App. This build deliberately runs on localhost with server `.env` credentials; public credential entry is not enabled. Register a separate production OAuth callback when that mode is implemented.
 
 Already configured locally: Google/Gemma, Nebius and ElevenLabs keys. Their values are excluded from this file and Git. A recent Google positioning request timed out; Nebius is the local demo default, with no automatic provider fallback.
+
+## Completed launch-pack checkpoint
+
+- [x] Save reviewed four-channel edits with stale-version guards; use them in exports and reminders.
+- [x] Download one bounded ZIP with current available media and a missing/stale manifest.
+- [x] Create and review five real Instagram carousel PNGs and an editable caption.
+- [x] Persist local jobs, edits and media in SQLite across restarts; never persist provider/GitHub keys.
+- [x] Create Sudo Launch's own reviewed copy, genuine footage, narrated 25s reel and five carousel slides in one ZIP. Restart/download checks passed. Prepared outputs are in `.local/sudo-launch-demo/`; review the final ZIP/reel before publishing.
+- [ ] Choose your actual posting date, review Sudo's copy/media, then publish manually. Sample calendar reminders do not publish anything.

@@ -175,7 +175,7 @@ export default function App() {
       setNotice(
         authResult === "connected"
           ? "GitHub connected. Your token stays on this local server."
-          : "GitHub sign-in failed or expired. Check todo.md and retry.",
+          : "GitHub sign-in failed or expired. Open Settings and reconnect; public profile discovery still works.",
       );
       history.replaceState(null, "", location.pathname);
     }

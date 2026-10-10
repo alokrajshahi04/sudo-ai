@@ -36,7 +36,7 @@ Use one project with a real implemented interaction. Tolti is useful for showing
 
 Show: repository → source understanding and findings → edited/confirmed brief → chosen story → portrait reel and copy → downloaded pack. Explain what Gemma decided, what the controller constrained, how ElevenLabs audio was used, and why source evidence does not prove runtime behavior.
 
-A strong self-demonstration is **launch Sudo Launch using Sudo Launch**, with actual footage of this app and a human-reviewed pack. Keep a recorded run and downloaded artifacts for venue-network failures; label prepared output accurately.
+The self-demonstration **launch Sudo Launch using Sudo Launch** is prepared with actual app footage, reviewed copy, five carousel slides and a narrated 25s portrait reel in one ZIP. Local SQLite restart and browser download were verified. Keep a recorded run and downloaded artifacts for venue-network failures; label prepared output accurately.
 
 ## After the hackathon
 
