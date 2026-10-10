@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
-import type { Job } from "../../shared/types";
+import type { Job, ModelProvider } from "../../shared/types";
 
 function fixture(
   name = "community-tool",
@@ -92,6 +92,7 @@ async function mockApi(
     showWelcome?: boolean;
     media?: boolean;
     apiOffline?: boolean;
+    defaultProvider?: ModelProvider;
   } = {},
 ) {
   if (!options.showWelcome)
@@ -111,14 +112,31 @@ async function mockApi(
     const method = route.request().method();
     if (method === "POST") calls.push(path.split("/").pop()!);
     let data: unknown;
-    if (controls.apiOffline && (path.endsWith("/capabilities") || path.endsWith("/discover"))) { await route.fulfill({ status: 503, json: { error: "Local API is unavailable. Start npm run dev and retry." } }); return; }
+    if (
+      controls.apiOffline &&
+      (path.endsWith("/capabilities") || path.endsWith("/discover"))
+    ) {
+      await route.fulfill({
+        status: 503,
+        json: {
+          error: "Local API is unavailable. Start npm run dev and retry.",
+        },
+      });
+      return;
+    }
     if (path.endsWith("/capabilities"))
       data = {
         mode: "local",
+        defaultModelProvider: options.defaultProvider,
         models: [
           {
             provider: "google",
             model: "fixture-model",
+            configured: options.configured ?? true,
+          },
+          {
+            provider: "nebius",
+            model: "zai-org/GLM-5.3-Flash",
             configured: options.configured ?? true,
           },
         ],
@@ -171,6 +189,7 @@ async function mockApi(
           name === "release-cli" ? "python_cli" : "documentation",
         );
         job.launchBrief = body.launchBrief;
+        job.modelPreference = body.model ?? "google";
         job.brief = body.brief || "";
         if (options.configured ?? true) {
           job.analysis = {
@@ -625,6 +644,27 @@ test("source failure explains the blocked action and retries without model spend
   ).toHaveCount(0);
 });
 
+test("configured default applies to old jobs and explicit model choice survives reload", async ({
+  page,
+}) => {
+  await mockApi(page, { restored: fixture(), defaultProvider: "nebius" });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Settings" }).click();
+  const select = page
+    .getByRole("dialog", { name: "Model preferences" })
+    .getByLabel("Model provider");
+  await expect(select).toHaveValue("nebius");
+  await expect(select).toContainText("zai-org/GLM-5.3-Flash");
+  await select.selectOption("google");
+  await page.reload();
+  await page.getByRole("button", { name: "Settings" }).click();
+  await expect(select).toHaveValue("google");
+  await select.selectOption("nebius");
+  await page.reload();
+  await page.getByRole("button", { name: "Settings" }).click();
+  await expect(select).toHaveValue("nebius");
+});
+
 test("first-visit guide explains the product and slash shortcut, then stays dismissed", async ({
   page,
 }, testInfo) => {
@@ -754,21 +794,34 @@ test("promo storyboard gates rendering; music failure preserves the text pack", 
   await page.screenshot({ path: testInfo.outputPath("promo-studio.png") });
 });
 
-test("API outage is explained in discovery and recovers without reloading or GitHub sign-in", async ({ page }, testInfo) => {
+test("API outage is explained in discovery and recovers without reloading or GitHub sign-in", async ({
+  page,
+}, testInfo) => {
   const backend = await mockApi(page, { apiOffline: true });
   await page.goto("/");
   await page.getByRole("button", { name: "Find my projects ↗" }).click();
-  await expect(page.locator(".api-connection-warning")).toContainText("does not need GitHub sign-in");
+  await expect(page.locator(".api-connection-warning")).toContainText(
+    "does not need GitHub sign-in",
+  );
   await page.getByLabel("GitHub username").fill("developer");
-  const discover = page.getByRole("button", { name: "Find projects →", exact: true });
+  const discover = page.getByRole("button", {
+    name: "Find projects →",
+    exact: true,
+  });
   await expect(discover).toBeEnabled();
   await discover.click();
-  await expect(page.getByRole("alert")).toContainText("Local API is unavailable");
-  await page.screenshot({ path: testInfo.outputPath("api-offline-discovery.png") });
+  await expect(page.getByRole("alert")).toContainText(
+    "Local API is unavailable",
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("api-offline-discovery.png"),
+  });
   backend.controls.apiOffline = false;
   await page.getByRole("button", { name: "Retry API connection" }).click();
   await expect(page.locator(".api-connection-warning")).toHaveCount(0);
   await expect(page.getByLabel("GitHub username")).toHaveValue("developer");
   await discover.click();
-  await expect(page.getByRole("heading", { name: "community-tool", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "community-tool", exact: true }),
+  ).toBeVisible();
 });

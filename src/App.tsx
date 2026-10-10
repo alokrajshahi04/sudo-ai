@@ -49,6 +49,18 @@ function Orb() {
     </div>
   );
 }
+function savedModel(): ModelProvider | null {
+  try {
+    const provider = localStorage.getItem("sudo-model-provider");
+    return provider === "google" ||
+      provider === "nebius" ||
+      provider === "custom"
+      ? provider
+      : null;
+  } catch {
+    return null;
+  }
+}
 export default function App() {
   const [job, setJob] = useState<Job | null>(null),
     [capabilities, setCapabilities] = useState<Capabilities | null>(null);
@@ -65,11 +77,21 @@ export default function App() {
     }),
     [command, setCommand] = useState(""),
     [notice, setNotice] = useState("");
-  const [model, setModel] = useState<ModelProvider>("google"),
+  const [model, setModel] = useState<ModelProvider>(
+      () => savedModel() || "google",
+    ),
     [repo, setRepo] = useState(""),
     [privateConsent, setPrivateConsent] = useState(false),
     [formError, setFormError] = useState(""),
     [creating, setCreating] = useState(false);
+  const modelChosenRef = useRef(!!savedModel());
+  function chooseModel(provider: ModelProvider) {
+    modelChosenRef.current = true;
+    setModel(provider);
+    try {
+      localStorage.setItem("sudo-model-provider", provider);
+    } catch {}
+  }
   const [username, setUsername] = useState(""),
     [discovery, setDiscovery] = useState<ProfileDiscovery | null>(null),
     [discovering, setDiscovering] = useState(false);
@@ -171,6 +193,8 @@ export default function App() {
         setApiError("");
         if (!restored) {
           restored = true;
+          if (!modelChosenRef.current && next.defaultModelProvider)
+            setModel(next.defaultModelProvider);
           try {
             const previousJobs = await api<Job[]>("/jobs");
             if (!alive) return;
@@ -178,7 +202,8 @@ export default function App() {
             if (previousJobs.length) {
               const latest = previousJobs[previousJobs.length - 1];
               setJob(latest);
-              setModel(latest.modelPreference);
+              if (!modelChosenRef.current && !next.defaultModelProvider)
+                setModel(latest.modelPreference);
               setStage(
                 latest.positioning && latest.launchStrategy
                   ? "pack"
@@ -514,7 +539,11 @@ export default function App() {
                     key={saved.id}
                     onClick={() => {
                       setJob(saved);
-                      setModel(saved.modelPreference);
+                      if (
+                        !modelChosenRef.current &&
+                        !capabilities?.defaultModelProvider
+                      )
+                        setModel(saved.modelPreference);
                       setStage(
                         saved.positioning && saved.launchStrategy
                           ? "pack"
@@ -966,7 +995,7 @@ export default function App() {
             <select
               id="model"
               value={model}
-              onChange={(e) => setModel(e.target.value as ModelProvider)}
+              onChange={(e) => chooseModel(e.target.value as ModelProvider)}
             >
               {(["google", "nebius", "custom"] as ModelProvider[]).map(
                 (provider) => (

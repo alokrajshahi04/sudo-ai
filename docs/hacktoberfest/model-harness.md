@@ -2,7 +2,7 @@
 
 Current scope: product understanding, audience positioning, and launch assets.
 The implemented positioning prompt lives in [models.ts](../../server/models.ts).
-The repo-analysis prompt lives in [analysis.ts](../../server/analysis.ts). Gemma 4 analysis and positioning passed live checks on Tolti; runtime proof still comes from independent checks.
+The repo-analysis prompt lives in [analysis.ts](../../server/analysis.ts). Gemma 4 analysis and positioning previously passed live checks on Tolti; a later PokeChess positioning check timed out after 60 seconds. Nebius GLM-5.3-Flash is now configured as the local demo provider. Runtime proof still comes from independent checks.
 
 ## Controller boundaries
 
@@ -71,3 +71,9 @@ Analysis has its own strict schema: summary, proposed audience/goal/context, ass
 Readiness is deterministic and bounded. Missing README/license/test paths, recognizable starter copy, browser-public credential names and absent runtime proof produce review tasks. Missing paths are not definitive absence; some public keys are intentionally publishable. A fixed coding-agent handoff includes repository/revision, verify-first instructions, source files, no deploy/posting, owner decisions and truthful verification. The model does not generate executable fixes.
 
 Validation repairs identify failing field paths/lengths or invalid evidence IDs without echoing raw provider output. X drafts target under 220 characters for headroom below the hard 280 limit; narration targets 40–50 words for the 25s storyboard. Provider timeout/rejection stops the phase with no automatic provider switch. Private projects require consent and default to no public research.
+
+Both prompts state every array and character limit explicitly. Nebius uses JSON mode, the supplied US North 1 endpoint, and exact model ID `zai-org/GLM-5.3-Flash`. GLM's reasoning setting is `low` (its supported values are `low`, `high`, and `max`; `none` reverts to `max`). An 8,192-token budget includes reasoning and the final JSON. Truncated responses are rejected even if their text parses, and one concise repair is permitted. The initial default-reasoning live test exhausted its budget entirely on reasoning; analysis also once exceeded six assumptions and was repaired.
+
+With explicit limits and low reasoning, the final live browser run on PokeChess completed analysis in 6.4 seconds and two-story positioning in 9.4 seconds, both on their first attempt. All cited evidence IDs and schema lengths passed validation; the browser reported no JavaScript errors. These are observed timings for one run, not a latency guarantee or runtime certification of PokeChess.
+
+Safe attempt metadata persists in ignored `.local/model-calls.jsonl` and the API terminal: task, model/provider, attempt, time, status, finish reason, available token counts and schema error paths. No source, generated text, error bodies, headers or keys are logged. The original Gemma validation failure predates these diagnostics, so its precise field-level cause cannot be recovered. Local logs are bounded and survive watcher restarts. A browser's explicit model selection is remembered independently of a job's previous successful model.

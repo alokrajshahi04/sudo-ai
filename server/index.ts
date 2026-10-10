@@ -19,7 +19,7 @@ import {
   discoverConnected,
 } from "./github";
 import { fetchPublic, plainText } from "./network";
-import { modelConfig, generatePositioning } from "./models";
+import { modelConfig, generatePositioning, defaultModelProvider } from "./models";
 import { GitHubConnections } from "./auth";
 import { analyzeProject, reviewReadiness } from "./analysis";
 import { makeStoryboard, promoAvailable, renderPromo } from "./promo";
@@ -187,6 +187,7 @@ app.get("/api/capabilities", (_req, res) => {
   const providers: ModelProvider[] = ["google", "nebius", "custom"];
   const capabilities: Capabilities = {
     mode: "local",
+    defaultModelProvider: defaultModelProvider(),
     models: providers.map((provider) => {
       const c = modelConfig(provider);
       return {
@@ -358,7 +359,7 @@ app.post("/api/jobs", (req, res) => {
       brief: z.string().min(3).max(1200).optional(),
       privateConsent: z.boolean().default(false),
       launchBrief: launchBriefSchema.optional(),
-      model: z.enum(["google", "nebius", "custom"]).default("google"),
+      model: z.enum(["google", "nebius", "custom"]).default(defaultModelProvider()),
     })
     .strict()
     .parse(req.body);

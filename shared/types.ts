@@ -125,6 +125,7 @@ export interface Job {
 }
 export interface Capabilities {
   mode: "local";
+  defaultModelProvider?: ModelProvider;
   models: { provider: ModelProvider; model: string; configured: boolean }[];
   narration: boolean;
   music?: boolean;

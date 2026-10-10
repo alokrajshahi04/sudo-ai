@@ -22,7 +22,8 @@ Set keys in ignored `.env`, then restart the API. Keys never belong in the comma
 | Variables | Use |
 | --- | --- |
 | `GOOGLE_API_KEY`, `GOOGLE_MODEL` | Google AI Studio inference. Default `gemma-4-26b-a4b-it`, chosen after faster live responses than `gemma-4-31b-it`; either exact ID can be configured. |
-| `NEBIUS_API_KEY`, `NEBIUS_MODEL` | Exact model ID from your Nebius catalog; the requested GLM model's availability/license are not assumed. |
+| `NEBIUS_API_KEY`, `NEBIUS_MODEL`, `NEBIUS_BASE_URL` | Nebius chat completions. Defaults: `zai-org/GLM-5.3-Flash` at `https://api.tokenfactory.us-north1.nebius.com/v1/`. Override model and region to match your account. Access is checked during generation. |
+| `DEFAULT_MODEL_PROVIDER` | Initial provider: `google`, `nebius`, or `custom`. This local demo selects `nebius`. Settings saves an explicit choice in browser storage; reopening an old Google job does not overwrite it. No automatic provider fallback. |
 | `CUSTOM_MODEL_BASE_URL`, `CUSTOM_MODEL_API_KEY`, `CUSTOM_MODEL_ID` | Locally configured compatible chat-completions endpoint. Base excludes `/chat/completions`; even a local server needs a placeholder key value. |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | OAuth app, callback `http://localhost:5173/api/auth/github/callback`. Use that origin for sign-in, or register the exact origin you run. Setup tasks are in [todo.md](../todo.md). |
 | `GITHUB_TOKEN` | Optional fine-grained token with read-only Contents/Metadata on selected repos. Explicitly connect it in Settings; it is never applied automatically to other sessions. |
@@ -33,6 +34,12 @@ Set keys in ignored `.env`, then restart the API. Keys never belong in the comma
 OAuth uses GitHub's broad `repo` scope, including write permission, although this app only reads. Prefer a selected-repo read-only token locally; a GitHub App is the future hosted approach. Tokens remain in server memory, belong to one session, and are removed on disconnect/expiry/restart. Disconnect also clears already-inspected private jobs. OAuth state, PKCE S256, and a callback-only HttpOnly SameSite Lax nonce bind the callback to the original Strict session.
 
 Public profile discovery reads up to 100 recent public owned repos. Connected discovery reads up to 100 accessible public/private repos. Each shortlists up to 30 non-fork, non-archived, non-empty projects. Ranking explains metadata signals; it is not a product-quality score.
+
+### Model diagnostics
+
+Each attempt logs task/provider/model, elapsed time, HTTP status, finish reason, available token counts, and bounded validation field errors. Logs appear in the API terminal and ignored `.local/model-calls.jsonl`, with one rotated file at approximately 256 KB. Files use owner-only permissions; prompts, source excerpts, model responses, provider error bodies, headers and credentials are excluded. Diagnostics survive API restarts, while jobs do not.
+
+Nebius requests JSON mode. For `zai-org/GLM-5.3-Flash`, the harness sets `reasoning_effort: "low"` and an 8,192-token completion budget. The model supports `low`, `high`, and `max`; unsupported values such as `none` revert to `max` ([model card](https://huggingface.co/zai-org/GLM-5.3-Flash)). Live testing found a default-reasoning request spent all 8,192 tokens on reasoning without final JSON. Schema limits and known evidence IDs remain mandatory, with at most one repair. Google receives 4,096 output tokens initially and 6,144 on repair. Each model request times out after 60 seconds.
 
 ## Workflow
 
