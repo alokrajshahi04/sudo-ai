@@ -1,6 +1,6 @@
 # Next phase: a launch pack people want to share
 
-Planning only. Budget reported by the participant: about 4.5 hours of build time, then demo preparation. This does not authorize automatic publication or additional paid generation across repositories.
+Product roadmap and evaluation checkpoint. The participant later reported five hours until evaluation. Automatic publication is outside scope; paid generation remains an explicit selected-project action.
 
 ## Product promise
 
@@ -8,7 +8,7 @@ Planning only. Budget reported by the participant: about 4.5 hours of build time
 
 One entry point, one reviewed brief, one downloadable pack. Internally this still needs several checks; the user should not have to manage a collection of tool panels. A draft reel should explain the problem, demonstrate the actual product when footage is supplied, and ask for one clear action.
 
-The current foundation works locally: repo-first Gemma analysis, source-readiness handoff, two positioning stories, launch posts, GitHub OAuth/private support awaiting account configuration, and a 25s Brag-inspired landscape promo with live ElevenLabs voice/music. The biggest output gap is a polished portrait reel. Broader research, batch automation and hosting are separate priorities.
+The current foundation works locally: repo-first selectable model analysis, deeper readiness handoff, two positioning stories, launch posts, GitHub OAuth/private support awaiting account configuration, approved deployed-site recording, and a 25s Brag-inspired portrait/landscape promo with live ElevenLabs aligned voice/captions and optional music. Broader research, batch automation and hosting remain separate priorities.
 
 ## Hackathon priorities
 
@@ -22,18 +22,13 @@ The current foundation works locally: repo-first Gemma analysis, source-readines
 
 For reels, avoid relying on long paragraphs or import statements as the main creative material. Keep each scene to one idea. Use real screenshots/footage when provided, readable holds, safe margins for platform controls, a brief hook, a concrete benefit and an outro. Caption timing needs alignment or clear user review; do not invent proof of interactions.
 
-## Suggested build budget
+## Evaluation checkpoint
 
-| Budget | Work |
-| --- | --- |
-| First 15 min | Lock the demo repo, review its actual working feature, gather owner-supplied footage/screenshots, complete necessary todo.md setup. |
-| Next 75 min | Portrait renderer, good scene composition, reusable visual templates, cover and caption layout. |
-| Next 40 min | Instagram caption/carousel and single ZIP export with provenance. |
-| Next 35 min | Simplify generation into one reviewed launch-pack action and clear preview/download state. |
-| Next 45 min | Browser checks, a fresh repo, provider/error paths, media playback and regression fixes. |
-| Final 60 min | Buffer, commit/push/freeze, prepare demo artifacts and the product's own launch pack. |
+The core upgrades are implemented: source-quoted AI readiness suggestions with explicit review/deployment/prototype gates; approved deployed-URL capture; screenshot uploads; portrait/landscape composition; ElevenLabs timestamped narration, burned captions and SRT; and dated ICS reminders. A real PokeChess browser run completed source → GLM stories → capture → ElevenLabs voice → 25s portrait MP4, with downloadable artifacts and no JavaScript errors. See [demo guide](../demo-guide.md) for the current steps and limitations.
 
-Do not use the buffer for another major integration. If scope runs long, preserve portrait quality and the coherent export first; carousel and deeper automation can move to the roadmap.
+Instagram-specific copy/carousel, a single ZIP, one combined generation action, brand memory and public hosting remain roadmap work. Agent-Reach research is not integrated; its README provides no native scheduling API. Calendar reminders are the implemented scheduling feature and require manual social publication.
+
+Use the remaining event time for presenting the actual core flow, reviewing claims, account setup, output quality and pitch rehearsal. Avoid depending on unconfigured OAuth or claiming future hosted features as implemented.
 
 ## Demo
 

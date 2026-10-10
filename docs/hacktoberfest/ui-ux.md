@@ -16,7 +16,7 @@ Public profile discovery and connected private-inclusive discovery show ranking 
 
 Creating the job reads source, runs deterministic readiness checks and, when configured, asks the chosen model for a proposed product brief. This uses model quota, disclosed before starting. Progress shows actual source-reading steps, readiness and model status. Suggestions prefill editable fields; they do not confirm the owner's audience/goal. The user confirms the brief before continuing. Manual editing remains available when suggestions fail.
 
-Readiness findings expand with source links and a read-only one-shot coding-agent prompt. Copying it does not run code or modify the repository. Source review is partial and does not certify runtime readiness.
+A prominent readiness callout appears above the brief, previews source-specific tasks and requires acknowledgement. Web apps offer a checked demo URL or explicit prototype mode. Readiness findings expand with source links and a read-only one-shot coding-agent prompt. Copying it does not run code or modify the repository. Source review is partial and does not certify runtime readiness.
 
 ## Three guided screens
 
@@ -47,8 +47,7 @@ footage, ElevenLabs or FFmpeg. Missing media prerequisites explain the disabled
 operation. Narration and music each require explicit approval and use the user's quota. Storyboard review gates promo rendering. Source visuals are labeled separately from footage; MP4/poster and upstream Brag handoff downloads are available.
 
 The pack offers a Markdown kit with the selected angle, post/narration drafts,
-prepared checklist/channels and cited evidence links/model provenance. Media
-downloads are separate. The JSON receipt records actual source/research/model/
+prepared checklist/channels and cited evidence links/model provenance. Media downloads are separate. The studio supports approved public URL capture with exact button labels, recording/screenshot uploads, portrait/landscape selection and provider-aligned burned captions. Changing the visual requires a refreshed storyboard. Calendar export schedules manual-posting reminders. The JSON receipt records actual source/research/model/
 media use. Copy controls exist for both social drafts. Publishing stays manual.
 
 ## Navigation, context and keyboard use

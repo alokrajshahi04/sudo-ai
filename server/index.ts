@@ -19,13 +19,21 @@ import {
   discoverConnected,
 } from "./github";
 import { fetchPublic, plainText } from "./network";
-import { modelConfig, generatePositioning, defaultModelProvider } from "./models";
+import {
+  modelConfig,
+  generatePositioning,
+  defaultModelProvider,
+} from "./models";
 import { GitHubConnections } from "./auth";
 import { analyzeProject, reviewReadiness } from "./analysis";
+import { launchCalendar } from "./calendar";
+import { requireLaunchReadiness } from "./launch-readiness";
+import { captureSite, captureSchema, captureAvailable } from "./capture";
 import { makeStoryboard, promoAvailable, renderPromo } from "./promo";
 import {
   validateRecording,
-  narrate,
+  narrateWithAlignment,
+  validateScreenshot,
   composeMusic,
   render,
   execute,
@@ -45,20 +53,20 @@ const media = new Map<
     music?: Buffer;
     video?: Buffer;
     poster?: Buffer;
+    screenshot?: Buffer;
+    captions?: Buffer;
   }
 >();
 const busy = new Set<string>();
 const attempts = new Map<string, { time: number; count: number }>();
 let ffmpegAvailable = false;
 let chromiumAvailable = false;
-void promoAvailable().then((available) => {
-  chromiumAvailable = available;
-});
-execute("ffmpeg", ["-version"], 5000)
-  .then(() => {
-    ffmpegAvailable = true;
-  })
-  .catch(() => {});
+let recorderAvailable = false;
+const mediaSetup = Promise.allSettled([
+  captureAvailable().then(available => {recorderAvailable=available;}),
+  promoAvailable().then(available => {chromiumAvailable=available;}),
+  execute("ffmpeg",["-version"],5000).then(()=>{ffmpegAvailable=true;}),
+]);
 const origins = new Set([
   "http://localhost:5173",
   "http://127.0.0.1:5173",
@@ -160,6 +168,8 @@ function capacity(bytes: Buffer, replaced?: Buffer) {
       (a.narration?.length || 0) +
       (a.video?.length || 0) +
       (a.music?.length || 0) +
+      (a.screenshot?.length || 0) +
+      (a.captions?.length || 0) +
       (a.poster?.length || 0),
     0,
   );
@@ -174,14 +184,19 @@ function clearGenerated(job: Job) {
   job.phases.render = { state: "idle" };
   job.phases.music = { state: "idle" };
   job.storyboard = undefined;
+  job.narrationScript = undefined;
+  job.captions = undefined;
   const assets = media.get(job.id);
   if (assets) {
     delete assets.narration;
     delete assets.video;
     delete assets.music;
     delete assets.poster;
+    delete assets.captions;
   }
-  job.artifacts = job.artifacts.filter((a) => a.type === "recording");
+  job.artifacts = job.artifacts.filter((a) =>
+    ["recording", "screenshot"].includes(a.type),
+  );
 }
 app.get("/api/capabilities", (_req, res) => {
   const providers: ModelProvider[] = ["google", "nebius", "custom"];
@@ -201,6 +216,7 @@ app.get("/api/capabilities", (_req, res) => {
     ),
     render: ffmpegAvailable,
     promo: ffmpegAvailable && chromiumAvailable,
+    capture: ffmpegAvailable && recorderAvailable,
     music: !!process.env.ELEVENLABS_API_KEY,
     githubAuth: {
       configured: !!(
@@ -315,11 +331,13 @@ async function readProject(job: Job & { owner: string }) {
     job.phases.verify = { state: "idle" };
     job.phases.recording = { state: "idle" };
     job.artifacts = [];
+    job.capture = undefined;
     media.delete(job.id);
   }
   job.inspection = inspected;
+  job.readinessReviewedAt = undefined;
   job.progressStep = "Reviewing source readiness";
-  job.readiness = reviewReadiness(job.repository, inspected);
+  job.readiness = reviewReadiness(job.repository, inspected, job.analysis?.findings);
   if (!job.repoFirst || job.launchBrief) {
     job.progressStep = undefined;
     return;
@@ -329,11 +347,22 @@ async function readProject(job: Job & { owner: string }) {
   job.progressStep = "Suggesting audience and product brief";
   try {
     job.analysis = await analyzeProject(job, job.modelPreference);
+    job.readiness = reviewReadiness(
+      job.repository,
+      inspected,
+      job.analysis.findings,
+    );
     job.phases.analyze = { state: "completed" };
   } catch (e) {
     job.phases.analyze = { state: "failed", error: safeError(e) };
   }
   job.progressStep = undefined;
+}
+async function checkSite(job: Job, url: string) {
+  const page = await fetchPublic(url);
+  const title = page.text.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
+  job.site={url,finalUrl:page.url,httpStatus:page.status,reachable:page.status>=200 && page.status<300,title:title?redact(plainText(title)).slice(0,200):null,checkedAt:new Date().toISOString(),builtRevision:null,interaction:"not_checked"};
+  if(!job.site.reachable)throw new AppError(422,`Site returned HTTP ${page.status}; reachability did not pass.`);
 }
 const launchBriefSchema = z
   .object({
@@ -359,7 +388,11 @@ app.post("/api/jobs", (req, res) => {
       brief: z.string().min(3).max(1200).optional(),
       privateConsent: z.boolean().default(false),
       launchBrief: launchBriefSchema.optional(),
-      model: z.enum(["google", "nebius", "custom"]).default(defaultModelProvider()),
+      model: z
+        .enum(["google", "nebius", "custom"])
+        .default(defaultModelProvider()),
+      launchMode: z.enum(["live", "prototype", "source"]).optional(),
+      demoUrl: z.string().max(1000).optional(),
     })
     .strict()
     .parse(req.body);
@@ -387,6 +420,8 @@ app.post("/api/jobs", (req, res) => {
       ? sanitizeBrief(input.launchBrief)
       : undefined,
     modelPreference: input.model,
+    launchMode: input.launchMode || "live",
+    requestedDemoUrl: input.demoUrl,
     selectedAngle: 0,
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
@@ -406,6 +441,13 @@ app.post("/api/jobs", (req, res) => {
   jobs.set(job.id, job);
   operation(job, "inspect", async () => {
     await readProject(job);
+    if(input.demoUrl) {
+      job.progressStep="Checking your deployed project link";
+      job.phases.verify={state:"running"};
+      try {await checkSite(job,input.demoUrl);job.phases.verify={state:"completed"};}
+      catch(e){job.phases.verify={state:"failed",error:safeError(e)};}
+      job.progressStep=undefined;
+    }
   });
   res.status(202).json(publicJob(job));
 });
@@ -448,10 +490,40 @@ app.post("/api/jobs/:id/analyze", (req, res) => {
       "Private source requires your approval before model analysis.",
     );
   operation(job, "analyze", async () => {
+    job.readinessReviewedAt = undefined;
     job.analysis = await analyzeProject(job, input.provider);
+    job.readiness = reviewReadiness(
+      job.repository,
+      job.inspection!,
+      job.analysis.findings,
+    );
     job.modelPreference = input.provider;
   });
   res.status(202).json(publicJob(job));
+});
+app.post("/api/jobs/:id/readiness-review", (req, res) => {
+  const job = getJob(req.params.id, res.locals.owner);
+  z.object({ acknowledged: z.literal(true) })
+    .strict()
+    .parse(req.body);
+  if (busy.has(job.id))
+    throw new AppError(409, "Wait for the current operation.");
+  if (!job.readiness)
+    throw new AppError(409, "Inspect your project before reviewing readiness.");
+  job.readinessReviewedAt = new Date().toISOString();
+  res.json(publicJob(job));
+});
+app.post("/api/jobs/:id/launch-mode", (req, res) => {
+  const job = getJob(req.params.id, res.locals.owner);
+  const input = z
+    .object({ mode: z.enum(["live", "prototype", "source"]) })
+    .strict()
+    .parse(req.body);
+  if (busy.has(job.id))
+    throw new AppError(409, "Wait for the current operation.");
+  job.launchMode = input.mode;
+  clearGenerated(job);
+  res.json(publicJob(job));
 });
 app.post("/api/jobs/:id/brief", (req, res) => {
   const job = getJob(req.params.id, res.locals.owner);
@@ -527,6 +599,7 @@ app.post("/api/jobs/:id/position", (req, res) => {
     throw new AppError(409, "Complete repository inspection first.");
   if (!job.launchBrief)
     throw new AppError(409, "Confirm the audience and launch goal first.");
+  requireLaunchReadiness(job);
   const c = modelConfig(input.provider);
   if (!c.key || !c.model || !c.base)
     throw new AppError(
@@ -559,10 +632,15 @@ app.post("/api/jobs/:id/angle", (req, res) => {
       delete assets.video;
       delete assets.poster;
     }
-    job.artifacts = job.artifacts.filter((a) => a.type === "recording");
+    job.artifacts = job.artifacts.filter((a) =>
+      ["recording", "screenshot"].includes(a.type),
+    );
     job.phases.narrate = { state: "idle" };
     job.phases.music = { state: "idle" };
     job.storyboard = undefined;
+    job.narrationScript = undefined;
+    job.captions = undefined;
+    if (assets) delete assets.captions;
     job.phases.render = { state: "idle" };
   }
   job.selectedAngle = input.index;
@@ -626,24 +704,7 @@ app.post("/api/jobs/:id/verify", (req, res) => {
   operation(job, "verify", async () => {
     job.site = undefined;
     clearGenerated(job);
-    const page = await fetchPublic(input.url);
-    const title = page.text.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
-    job.site = {
-      url: input.url,
-      finalUrl: page.url,
-      httpStatus: page.status,
-      reachable: page.status >= 200 && page.status < 300,
-      title: title ? redact(plainText(title)).slice(0, 200) : null,
-      checkedAt: new Date().toISOString(),
-      builtRevision: null,
-      interaction: "not_checked",
-    };
-    clearGenerated(job);
-    if (!job.site.reachable)
-      throw new AppError(
-        422,
-        `Site returned HTTP ${page.status}; reachability did not pass.`,
-      );
+    await checkSite(job,input.url);
   });
   res.status(202).json(publicJob(job));
 });
@@ -680,6 +741,7 @@ app.post(
       const assets = media.get(job.id) || {};
       capacity(bytes, assets.recording);
       assets.recording = bytes;
+      job.capture = undefined;
       delete assets.video;
       delete assets.poster;
       media.set(job.id, assets);
@@ -692,6 +754,81 @@ app.post(
         url: `/api/jobs/${job.id}/assets/recording`,
         provenance:
           "User-supplied recording. Not captured or interaction-verified by Sudo Launch.",
+      });
+    });
+    res.status(202).json(publicJob(job));
+  },
+);
+app.post("/api/jobs/:id/capture", (req, res) => {
+  const job = getJob(req.params.id, res.locals.owner);
+  const input = captureSchema.parse(req.body);
+  if (!job.inspection)
+    throw new AppError(409, "Read the project source first.");
+  if (!recorderAvailable || !ffmpegAvailable)
+    throw new AppError(409, "Capture requires Chromium, system FFmpeg and Playwright's encoder. Run npm run setup:browser, or npx playwright install ffmpeg when using an existing Chromium.");
+  operation(job, "recording", async () => {
+    try {
+      const result = await captureSite(input, (step) => {
+        job.progressStep = step;
+      });
+      await validateRecording(result.recording);
+      const assets = media.get(job.id) || {};
+      capacity(
+        Buffer.concat([result.recording, result.screenshot]),
+        Buffer.concat([
+          assets.recording || Buffer.alloc(0),
+          assets.screenshot || Buffer.alloc(0),
+        ]),
+      );
+      assets.recording = result.recording;
+      assets.screenshot = result.screenshot;
+      delete assets.video;
+      delete assets.poster;
+      media.set(job.id, assets);
+      job.capture = result.capture;
+      job.phases.render = { state: "idle" };
+      job.artifacts = job.artifacts.filter(
+        (a) => !["recording", "screenshot", "video", "poster"].includes(a.type),
+      );
+      for (const type of ["recording", "screenshot"] as const)
+        job.artifacts.push({
+          type,
+          url: `/api/jobs/${job.id}/assets/${type}`,
+          provenance: result.capture.coverage,
+        });
+    } finally {
+      job.progressStep = undefined;
+    }
+  });
+  res.status(202).json(publicJob(job));
+});
+app.post(
+  "/api/jobs/:id/screenshot",
+  express.raw({ type: ["image/png", "image/jpeg"], limit: "8mb" }),
+  (req, res) => {
+    const job = getJob(req.params.id, res.locals.owner);
+    if (!Buffer.isBuffer(req.body) || !req.body.length)
+      throw new AppError(400, "Upload a PNG or JPEG screenshot up to 8 MB.");
+    if (!ffmpegAvailable)
+      throw new AppError(409, "Screenshot preparation requires FFmpeg.");
+    const bytes: Buffer = req.body;
+    operation(job, "recording", async () => {
+      const screenshot = await validateScreenshot(bytes),
+        assets = media.get(job.id) || {};
+      capacity(screenshot, assets.screenshot);
+      assets.screenshot = screenshot;
+      delete assets.video;
+      delete assets.poster;
+      media.set(job.id, assets);
+      job.phases.render = { state: "idle" };
+      job.artifacts = job.artifacts.filter(
+        (a) => !["screenshot", "video", "poster"].includes(a.type),
+      );
+      job.artifacts.push({
+        type: "screenshot",
+        url: `/api/jobs/${job.id}/assets/screenshot`,
+        provenance:
+          "Owner-supplied screenshot; not automatic proof of runtime features.",
       });
     });
     res.status(202).json(publicJob(job));
@@ -711,17 +848,33 @@ app.post("/api/jobs/:id/narrate", (req, res) => {
   if (!process.env.ELEVENLABS_API_KEY || !process.env.ELEVENLABS_VOICE_ID)
     throw new AppError(409, "Configure ElevenLabs locally before narration.");
   operation(job, "narrate", async () => {
-    const audio = await narrate(input.text);
+    const aligned = await narrateWithAlignment(redact(input.text));
+    const audio = aligned.audio;
     const assets = media.get(job.id) || {};
-    capacity(audio, assets.narration);
+    capacity(
+      Buffer.concat([audio, aligned.srt]),
+      Buffer.concat([
+        assets.narration || Buffer.alloc(0),
+        assets.captions || Buffer.alloc(0),
+      ]),
+    );
     assets.narration = audio;
+    assets.captions = aligned.srt;
+    job.narrationScript = redact(input.text);
+    job.captions = aligned.cues;
     delete assets.video;
     delete assets.poster;
     media.set(job.id, assets);
     job.phases.render = { state: "idle" };
     job.artifacts = job.artifacts.filter(
-      (a) => !["narration", "video", "poster"].includes(a.type),
+      (a) => !["narration", "captions", "video", "poster"].includes(a.type),
     );
+    job.artifacts.push({
+      type: "captions",
+      url: `/api/jobs/${job.id}/assets/captions`,
+      provenance:
+        "SRT aligned to the approved narration using ElevenLabs character timestamps.",
+    });
     job.artifacts.push({
       type: "narration",
       url: `/api/jobs/${job.id}/assets/narration`,
@@ -765,11 +918,11 @@ app.post("/api/jobs/:id/music", (req, res) => {
   res.status(202).json(publicJob(job));
 });
 app.post("/api/jobs/:id/storyboard", (req, res) => {
-  z.object({}).strict().parse(req.body);
+  const input = z.object({visual:z.enum(["source","recording","screenshot"]).default("source")}).strict().parse(req.body);
   const job = getJob(req.params.id, res.locals.owner);
   if (busy.has(job.id))
     throw new AppError(409, "Wait for the current operation.");
-  job.storyboard = makeStoryboard(job);
+  job.storyboard = makeStoryboard(job,input.visual);
   res.json(publicJob(job));
 });
 app.get("/api/jobs/:id/brag", (req, res) => {
@@ -792,6 +945,9 @@ app.post("/api/jobs/:id/promo", (req, res) => {
       useNarration: z.boolean(),
       useMusic: z.boolean(),
       useRecording: z.boolean(),
+      useScreenshot: z.boolean().default(false),
+      useCaptions: z.boolean().default(false),
+      format: z.enum(["landscape", "portrait"]).default("landscape"),
     })
     .strict()
     .parse(req.body);
@@ -802,6 +958,8 @@ app.post("/api/jobs/:id/promo", (req, res) => {
     );
   if (!job.storyboard)
     throw new AppError(409, "Prepare and review the storyboard first.");
+  const visual = input.useRecording ? "recording" : input.useScreenshot ? "screenshot" : "source";
+  if((job.storyboard.visual || "source") !== visual)throw new AppError(409,"Your selected visuals changed. Prepare the storyboard again before rendering.");
   const assets = media.get(job.id) || {};
   if (input.useNarration && !assets.narration)
     throw new AppError(
@@ -812,6 +970,13 @@ app.post("/api/jobs/:id/promo", (req, res) => {
     throw new AppError(409, "Generate music first or disable the music bed.");
   if (input.useRecording && !assets.recording)
     throw new AppError(409, "Upload a recording first or use source visuals.");
+  if (input.useScreenshot && !assets.screenshot)
+    throw new AppError(409, "Upload or capture a screenshot first.");
+  if (input.useCaptions && (!input.useNarration || !assets.captions))
+    throw new AppError(
+      409,
+      "Generate aligned narration before enabling captions.",
+    );
   operation(job, "render", async () => {
     try {
       const result = await renderPromo(
@@ -821,6 +986,11 @@ app.post("/api/jobs/:id/promo", (req, res) => {
           narration: input.useNarration ? assets.narration : undefined,
           music: input.useMusic ? assets.music : undefined,
           recording: input.useRecording ? assets.recording : undefined,
+          recordingTail: input.useRecording && !!job.capture,
+          screenshot: input.useScreenshot ? assets.screenshot : undefined,
+          captions: input.useCaptions ? assets.captions : undefined,
+          captionCues: input.useCaptions ? job.captions : undefined,
+          format: input.format,
         },
         (step) => {
           job.progressStep = step;
@@ -839,7 +1009,7 @@ app.post("/api/jobs/:id/promo", (req, res) => {
       job.artifacts = job.artifacts.filter(
         (a) => !["video", "poster"].includes(a.type),
       );
-      const provenance = `Brag-inspired storyboard; Chromium + FFmpeg composition. ${input.useRecording ? "User recording in the middle scene" : "Actual source excerpt as a visual; no runtime footage"}. ${input.useNarration ? "ElevenLabs narration. " : ""}${input.useMusic ? "ElevenLabs music. " : ""}Not an interaction verification.`;
+      const provenance = `Brag-inspired storyboard; Chromium + FFmpeg composition. ${input.useRecording ? "Real recording in the middle scene" : input.useScreenshot ? "Owner-supplied or captured screenshot" : "Actual source excerpt as a visual; no runtime footage"}. ${input.useNarration ? "ElevenLabs narration. " : ""}${input.useMusic ? "ElevenLabs music. " : ""}Not an interaction verification.`;
       for (const type of ["video", "poster"] as const)
         job.artifacts.push({
           type,
@@ -889,24 +1059,63 @@ app.post("/api/jobs/:id/render", (req, res) => {
 app.get("/api/jobs/:id/assets/:type", (req, res) => {
   const job = getJob(req.params.id, res.locals.owner);
   const type = z
-    .enum(["recording", "narration", "music", "video", "poster"])
+    .enum([
+      "recording",
+      "narration",
+      "music",
+      "video",
+      "poster",
+      "screenshot",
+      "captions",
+    ])
     .parse(req.params.type);
   const bytes = media.get(job.id)?.[type];
   if (!bytes) throw new AppError(404, "Asset not found.");
   res.type(
-    type === "narration" || type === "music"
-      ? "audio/mpeg"
-      : type === "video"
-        ? "video/mp4"
-        : type === "poster"
-          ? "image/png"
-          : "application/octet-stream",
+    type === "captions"
+      ? "application/x-subrip"
+      : type === "screenshot"
+        ? "image/png"
+        : type === "narration" || type === "music"
+          ? "audio/mpeg"
+          : type === "video"
+            ? "video/mp4"
+            : type === "poster"
+              ? "image/png"
+              : "application/octet-stream",
   );
   res.setHeader(
     "Content-Disposition",
-    `${type === "recording" ? "attachment" : "inline"}; filename="sudo-${type}.${type === "narration" || type === "music" ? "mp3" : type === "video" ? "mp4" : type === "poster" ? "png" : "media"}"`,
+    `${type === "recording" ? "attachment" : "inline"}; filename="sudo-${type}.${type === "narration" || type === "music" ? "mp3" : type === "video" ? "mp4" : type === "poster" || type === "screenshot" ? "png" : type === "captions" ? "srt" : "media"}"`,
   );
+  res.setHeader("Accept-Ranges", "bytes");
+  if (req.headers.range) {
+    const ranges = req.range(bytes.length);
+    if (!Array.isArray(ranges) || ranges.type !== "bytes" || ranges.length !== 1) {
+      res.status(416).setHeader("Content-Range", `bytes */${bytes.length}`);
+      res.end();
+      return;
+    }
+    const { start, end } = ranges[0];
+    res.status(206).setHeader("Content-Range", `bytes ${start}-${end}/${bytes.length}`);
+    res.send(bytes.subarray(start, end + 1));
+    return;
+  }
   res.send(bytes);
+});
+app.get("/api/jobs/:id/calendar", (req, res) => {
+  const job = getJob(req.params.id, res.locals.owner);
+  const input = z
+    .object({ start: z.string().datetime() })
+    .strict()
+    .parse(req.query);
+  res
+    .type("text/calendar")
+    .setHeader(
+      "Content-Disposition",
+      'attachment; filename="sudo-launch-calendar.ics"',
+    );
+  res.send(launchCalendar(job, new Date(input.start)));
 });
 app.get("/api/jobs/:id/receipt", (req, res) => {
   const job = getJob(req.params.id, res.locals.owner);
@@ -933,13 +1142,14 @@ app.get("/api/jobs/:id/receipt", (req, res) => {
       research: job.research?.coverage || "Not run",
       httpCheck: job.site || null,
       interactionVerified: false,
-      automaticCapture: false,
+      automaticCapture: !!job.capture,
+      capture: job.capture || null,
     },
     limitations: [
       "Local in-memory job expires after one hour and is lost on server restart.",
       "Source evidence and HTTP reachability are not proof of product interactions.",
       "Publishing is performed by the developer, not Sudo Launch.",
-      "Recordings, if present, are supplied by the user.",
+      job.capture ? job.capture.coverage : "Uploaded visuals are supplied by the user; they are not independent verification.",
     ],
   });
 });
@@ -992,6 +1202,7 @@ setInterval(() => {
       attempts.delete(id);
     }
 }, 60_000).unref();
+await mediaSetup;
 app.listen(port, "127.0.0.1", () =>
   console.log(`Sudo Launch local API: http://127.0.0.1:${port}`),
 );

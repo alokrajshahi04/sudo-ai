@@ -4,13 +4,13 @@ Prepared: 2026-10-10 (UTC).
 
 Event and sponsor pages have been inspected. The selected product is **Sudo
 Launch**. The terminal frontend is connected to a local backend; the PRD, UI/UX
-spec, product overview, and bounded model instructions guide further work. Actual model/voice account access, Agent-Reach research, and secure hosted use
-still need preflight/implementation checks.
+spec, product overview, and bounded model instructions guide further work. Model inference, ElevenLabs audio and portrait URL-capture composition have passed live checks. Agent-Reach research and secure hosted use remain future integrations.
 
 ## Documents
 
 | Document | Purpose |
 | --- | --- |
+| [Evaluation demo](../demo-guide.md) | Verified walkthrough, backup outputs, constraints and remaining owner setup. |
 | [Local development](../development.md) | Implemented backend, setup, API contracts, limits, and current verification. |
 | [PRD](prd.md) | Functional requirements, delivery priorities, architecture, acceptance, and build order. |
 | [UI/UX implementation](ui-ux.md) | Terminal design, screen contracts, responsive/accessibility behavior, and implemented preview. |

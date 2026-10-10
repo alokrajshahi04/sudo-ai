@@ -12,7 +12,7 @@ library/CLI, workspace/multi-service, documentation, and unknown. All may enter
 marketing; none authorizes deployment or execution of the input project's code.
 
 Evidence types remain distinct: repository metadata, README/source, public
-research, owner statements, HTTP observations, and user-supplied recordings.
+research, owner statements, HTTP observations, and user-supplied recordings or approved public-page captures.
 No source or reachability observation establishes a verified interaction.
 Readmes may describe plans. A listed homepage is not proof of a previous launch.
 
@@ -48,7 +48,7 @@ ranking uses metadata with explicit reasons, not model prediction of success.
 Research sources retain URLs/dates/excerpts and actual coverage. Positioning uses
 these small evidence packs. Launch strategy uses the selected angle, simple
 channel purposes/timing, and a developer-owned checklist. Narration requires
-review/approval and configured voice access. Chromium renders escaped app-generated SVG with network/scripts denied; FFmpeg accepts only fixed arguments and source cards or validated uploaded footage. Posts remain drafts.
+review/approval and configured voice access. The composition browser renders escaped app-generated SVG with network/scripts denied; a separate approved capture browser uses bounded pinned public HTTPS GET transport; FFmpeg accepts only fixed arguments and source cards or validated uploaded footage. Posts remain drafts.
 
 Changing source revision invalidates dependent outputs. Changing angle invalidates
 strategy/voice/music/video/poster/storyboard. Adding research or a new URL check invalidates generated
@@ -68,11 +68,11 @@ runs are separate and must record their actual results.
 
 Analysis has its own strict schema: summary, proposed audience/goal/context, assumptions and known evidence IDs. It cannot mark the brief confirmed, change source profile, run commands or certify readiness. Suggestions are user-editable and require confirmation. Configured model ID, date and actual result remain visible.
 
-Readiness is deterministic and bounded. Missing README/license/test paths, recognizable starter copy, browser-public credential names and absent runtime proof produce review tasks. Missing paths are not definitive absence; some public keys are intentionally publishable. A fixed coding-agent handoff includes repository/revision, verify-first instructions, source files, no deploy/posting, owner decisions and truthful verification. The model does not generate executable fixes.
+Readiness combines deterministic checks and up to five bounded AI findings. Each finding must cite real evidence and quote a verbatim source substring; the model receives exact quote options and Nebius constrains these in its output schema. Missing README/license/test paths, recognizable starter copy, browser-public credential names and absent runtime proof produce review tasks. Missing paths are not definitive absence; some public keys are intentionally publishable. A fixed coding-agent handoff includes repository/revision, verify-first instructions, source files, no deploy/posting, owner decisions and truthful verification. The model does not generate executable fixes.
 
 Validation repairs identify failing field paths/lengths or invalid evidence IDs without echoing raw provider output. X drafts target under 220 characters for headroom below the hard 280 limit; narration targets 40–50 words for the 25s storyboard. Provider timeout/rejection stops the phase with no automatic provider switch. Private projects require consent and default to no public research.
 
-Both prompts state every array and character limit explicitly. Nebius uses JSON mode, the supplied US North 1 endpoint, and exact model ID `zai-org/GLM-5.3-Flash`. GLM's reasoning setting is `low` (its supported values are `low`, `high`, and `max`; `none` reverts to `max`). An 8,192-token budget includes reasoning and the final JSON. Truncated responses are rejected even if their text parses, and one concise repair is permitted. The initial default-reasoning live test exhausted its budget entirely on reasoning; analysis also once exceeded six assumptions and was repaired.
+Both prompts state every array and character limit explicitly. Nebius uses strict JSON schemas with allowed evidence-ID and source-quote enums, the supplied US North 1 endpoint, and exact model ID `zai-org/GLM-5.3-Flash`. GLM's reasoning setting is `low` (its supported values are `low`, `high`, and `max`; `none` reverts to `max`). An 8,192-token budget includes reasoning and the final JSON. Truncated responses are rejected even if their text parses, and one concise repair is permitted. The initial default-reasoning live test exhausted its budget entirely on reasoning; analysis also once exceeded six assumptions and was repaired.
 
 With explicit limits and low reasoning, the final live browser run on PokeChess completed analysis in 6.4 seconds and two-story positioning in 9.4 seconds, both on their first attempt. All cited evidence IDs and schema lengths passed validation; the browser reported no JavaScript errors. These are observed timings for one run, not a latency guarantee or runtime certification of PokeChess.
 

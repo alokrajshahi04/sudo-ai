@@ -2,12 +2,16 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   generateJson,
+  generatePositioning,
   modelConfig,
   validatePositioning,
 } from "../server/models";
 import { validateAnalysis } from "../server/analysis";
+import { launchEvidence } from "../shared/evidence";
+import type { Job } from "../shared/types";
 
 const analysis = {
+  findings: [],
   summary: "A source-based student prototype",
   suggestedBrief: {
     audience: "Students",
@@ -237,4 +241,28 @@ test("Provider rejection is reported without logging error bodies or silently sw
     assert.ok(!logs.join("").includes("PRIVATE_PROVIDER_ERROR"));
     process.env.NEBIUS_BASE_URL = "https://configured.example/v1/";
     assert.equal(modelConfig("nebius").base, "https://configured.example/v1/");
+  }));
+
+test("Positioning constrains citations to the shared source and HTTP evidence registry", async () =>
+  harness(async () => {
+    const job = {
+      inspection: { evidence: [{ id: "source-1", excerpt: "public source" }] },
+      site: { url: "https://demo.example", finalUrl: "https://demo.example/", httpStatus: 200, reachable: true, title: "Demo", checkedAt: "2026-10-10T01:00:00Z" },
+    } as Job;
+    const evidence = launchEvidence(job);
+    assert.equal(evidence[1].id, "http-site");
+    assert.match(evidence[1].excerpt, /interactions.*not verified/);
+    globalThis.fetch = async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      const format = body.response_format;
+      assert.equal(format.type, "json_schema");
+      assert.equal(format.json_schema.strict, true);
+      assert.deepEqual(format.json_schema.schema.properties.angles.items.properties.evidenceIds.items.enum, ["source-1", "http-site"]);
+      const data = JSON.parse(body.messages[1].content.split("UNTRUSTED_DATA_JSON:\n")[1]);
+      assert.deepEqual(data.allowedEvidenceIds, ["source-1", "http-site"]);
+      return completion({ ...positioning, angles: positioning.angles.map(a => ({ ...a, evidenceIds: ["http-site"] })) });
+    };
+    const result = await generatePositioning(job, "nebius");
+    assert.equal(result.angles[0].evidenceIds[0], "http-site");
+    assert.throws(() => validatePositioning({ ...positioning, angles: positioning.angles.map(a => ({...a, evidenceIds: ["http-imagined"]})) }, new Set(evidence.map(e => e.id))));
   }));

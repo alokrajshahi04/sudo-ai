@@ -84,9 +84,70 @@ export async function validateRecording(bytes: Buffer) {
     await rm(dir, { recursive: true, force: true });
   }
 }
-export async function narrate(text: string): Promise<Buffer> {
-  const key = process.env.ELEVENLABS_API_KEY;
-  const voice = process.env.ELEVENLABS_VOICE_ID;
+export function captionCues(alignment: {
+  characters: string[];
+  character_start_times_seconds: number[];
+  character_end_times_seconds: number[];
+}) {
+  const {
+    characters,
+    character_start_times_seconds: starts,
+    character_end_times_seconds: ends,
+  } = alignment;
+  if (
+    !Array.isArray(characters) ||
+    characters.length > 2000 ||
+    !characters.length ||
+    starts?.length !== characters.length ||
+    ends?.length !== characters.length
+  )
+    throw new AppError(502, "ElevenLabs returned invalid caption alignment.");
+  if (
+    characters.some(
+      (c, i) =>
+        typeof c !== "string" ||
+        !Number.isFinite(starts[i]) ||
+        !Number.isFinite(ends[i]) ||
+        starts[i] < 0 ||
+        ends[i] < starts[i] ||
+        ends[i] > 120 ||
+        (i > 0 && starts[i] < starts[i - 1]),
+    )
+  )
+    throw new AppError(502, "ElevenLabs returned invalid caption timing.");
+  const cues: { start: number; end: number; text: string }[] = [];
+  let first = 0,
+    text = "";
+  for (let i = 0; i < characters.length; i++) {
+    text += characters[i];
+    const boundary =
+      /\s/.test(characters[i]) && text.trim().split(/\s+/).length >= 6;
+    if (boundary || i === characters.length - 1) {
+      if (text.trim())
+        cues.push({ start: starts[first], end: ends[i], text: text.trim() });
+      first = i + 1;
+      text = "";
+    }
+  }
+  return cues;
+}
+export function captionsSrt(
+  cues: { start: number; end: number; text: string }[],
+) {
+  const timestamp = (seconds: number) => {
+    const ms = Math.round(seconds * 1000);
+    return `${String(Math.floor(ms / 3600000)).padStart(2, "0")}:${String(Math.floor(ms / 60000) % 60).padStart(2, "0")}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")},${String(ms % 1000).padStart(3, "0")}`;
+  };
+  return cues
+    .map(
+      (c, i) =>
+        `${i + 1}\n${timestamp(c.start)} --> ${timestamp(c.end)}\n${c.text.replace(/[\r\n<>]/g, " ")}\n`,
+    )
+    .join("\n");
+}
+export async function narrateWithAlignment(text: string) {
+  const key = process.env.ELEVENLABS_API_KEY,
+    voice = process.env.ELEVENLABS_VOICE_ID;
   if (!key || !voice)
     throw new AppError(
       409,
@@ -95,7 +156,7 @@ export async function narrate(text: string): Promise<Buffer> {
   if (!/^[\w-]+$/.test(voice))
     throw new AppError(400, "Invalid configured voice ID.");
   const response = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_128`,
+    `https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps?output_format=mp3_44100_128`,
     {
       method: "POST",
       headers: { "xi-api-key": key, "Content-Type": "application/json" },
@@ -109,10 +170,86 @@ export async function narrate(text: string): Promise<Buffer> {
       502,
       `ElevenLabs rejected narration (HTTP ${response.status}). Check voice access and quota.`,
     );
-  const bytes = await response.arrayBuffer();
-  if (bytes.byteLength > 5_000_000)
+  const data = JSON.parse(await readResponse(response, 8_000_000));
+  if (
+    typeof data.audio_base64 !== "string" ||
+    !/^[A-Za-z0-9+/=]+$/.test(data.audio_base64)
+  )
+    throw new AppError(502, "ElevenLabs returned invalid audio.");
+  const audio = Buffer.from(data.audio_base64, "base64");
+  if (audio.length > 5_000_000)
     throw new AppError(502, "Narration exceeds the asset limit.");
-  return Buffer.from(bytes);
+  const cues = captionCues(data.normalized_alignment || data.alignment);
+  return { audio, cues, srt: Buffer.from(captionsSrt(cues)) };
+}
+export async function narrate(text: string): Promise<Buffer> {
+  return (await narrateWithAlignment(text)).audio;
+}
+export async function validateScreenshot(bytes: Buffer) {
+  const png = bytes
+    .subarray(0, 8)
+    .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  const jpeg = bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+  if (!png && !jpeg)
+    throw new AppError(422, "Upload a PNG or JPEG screenshot.");
+  const dir = await mkdtemp(join(tmpdir(), "sudo-image-"));
+  try {
+    const path = join(dir, png ? "screenshot.png" : "screenshot.jpg");
+    await writeFile(path, bytes);
+    const info = JSON.parse(
+      await execute(
+        "ffprobe",
+        [
+          "-v",
+          "error",
+          "-protocol_whitelist",
+          "file,pipe",
+          "-show_entries",
+          "stream=width,height,codec_name",
+          "-of",
+          "json",
+          path,
+        ],
+        15000,
+      ),
+    );
+    const stream = info.streams?.[0];
+    if (
+      !stream ||
+      !["png", "mjpeg"].includes(stream.codec_name) ||
+      stream.width < 100 ||
+      stream.height < 100 ||
+      stream.width * stream.height > 20_000_000
+    )
+      throw new AppError(
+        422,
+        "Screenshot must be at least 100×100 and no more than 20 megapixels.",
+      );
+    const output = join(dir, "normalized.png");
+    await execute(
+      "ffmpeg",
+      [
+        "-y",
+        "-v",
+        "error",
+        "-protocol_whitelist",
+        "file,pipe",
+        "-i",
+        path,
+        "-frames:v",
+        "1",
+        "-vf",
+        "scale=1920:1920:force_original_aspect_ratio=decrease",
+        "-threads",
+        "2",
+        output,
+      ],
+      20000,
+    );
+    return readFile(output);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 }
 export async function composeMusic(
   prompt: string,

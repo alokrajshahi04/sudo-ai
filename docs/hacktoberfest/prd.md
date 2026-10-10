@@ -22,11 +22,9 @@ step; strategy and optional media belong in the pack.
 
 Any accessible root repo can enter, including apps, Python tools, libraries, workspaces,
 documentation, and prototypes. Bounded inspection can be incomplete; describe
-coverage rather than promise universal understanding. Deployment compatibility
-is not a gate for marketing eligibility.
+coverage rather than promise universal understanding. Deployment compatibility is not a source-inspection gate. Web apps require a reachable public URL or an explicit prototype launch before generating stories; CLI/library/docs can launch from source.
 
-No target deployment integrations, cloud-token collection, automatic code/issue
-previews, input backend orchestration, source repair, or social publishing. The
+No target deployment integrations, cloud-token collection, automatic execution of repository code/issue previews, input backend orchestration, source repair, or social publishing. The
 product's own Node API handles source/model/voice operations. CLI/MCP is later.
 
 ## Requirements and acceptance
@@ -41,9 +39,10 @@ product's own Node API handles source/model/voice operations. CLI/MCP is later.
 | Positioning | Selected model returns two schema-valid angles, each with its own audience, rationale, evidence IDs, posts, and narration. Unknown evidence/action fields are rejected. |
 | Research | Up to three relevant GitHub results plus three public supplied pages; sources/dates and query coverage retained. No results means uncertainty. |
 | Launch strategy | Audience/angle informs reviewed channel purposes, sharing timing, and a release checklist. Publishing remains developer-owned. |
-| Readiness | Source-based findings and a copyable coding-agent prompt; no runtime certification or automatic source edits. |
+| Readiness | Deterministic and source-quoted AI findings, recommendations and a coding-agent prompt; explicit acknowledgement before positioning. No runtime certification or source edits. |
 | GitHub access | State + PKCE + callback nonce; private source needs consent and a session-specific token. Disconnect clears tokens/private jobs. |
-| Demo assets | Review a Brag-inspired 25s storyboard; source cards or uploaded footage; approved ElevenLabs voice/music; Chromium + FFmpeg MP4/poster; upstream Brag handoff export. |
+| Demo assets | Approved public URL capture with exact-label clicks/scrolls, uploaded footage or PNG/JPEG; reviewed 25s storyboard, portrait/landscape, ElevenLabs aligned narration/captions and optional music; Chromium + FFmpeg MP4/poster/SRT. |
+| Calendar | Future-dated ICS reminders with reviewed posts; no automatic publication. |
 | Pack | Selected-angle drafts, generated assets, and actual-execution receipt downloadable. Model preference is distinct from actual use. |
 | Workspace | Three guided steps, one document scroll area, visible next actions, optional command panel; desktop/mobile/zoom checks pass. |
 | Secrets/ownership | No browser keys; owned jobs/assets; Origin checks; bounded public URL access; no secrets in prompts/exports. Hosted release needs additional security gates. |
@@ -92,8 +91,7 @@ reviewed voice/video polish, secure hosted BYOK. Later: CLI/MCP and more asset t
 
 Repo-first analysis, readiness handoff, OAuth/private access, local model adapters,
 launch strategy, storyboard/audio/promo rendering and receipts are implemented.
-Gemma analysis/positioning and ElevenLabs voice/music passed live checks. OAuth app
-registration and Nebius configuration are deferred account tasks; Agent-Reach is pending. Do not report an unconfigured integration
+Gemma analysis/positioning and ElevenLabs voice/music passed live checks. OAuth app registration is a deferred account task. Nebius GLM is configured with schema-constrained citations/quotes; Agent-Reach is pending. Do not report an unconfigured integration
 as working because a button or mock exists.
 
 ## Demonstration and checks
@@ -103,7 +101,7 @@ manual checks. PokeChess is optional demonstration input. A mentor's new repo
 must travel through the same URL/profile flow and expose its actual profile,
 source coverage, warnings, and outputs.
 
-Validate profile filtering, category-specific source files, no deployment gate,
+Validate profile filtering, category-specific source files, explicit web/demo/prototype gate,
 malicious embedded instructions/schema fields, absent research, model failure,
 owner isolation, public IP rules, real media render, and honest receipts. Browser
 checks include internal stage scrolling, persistent navigation, command palette,

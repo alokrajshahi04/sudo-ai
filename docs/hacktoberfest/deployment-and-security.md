@@ -7,7 +7,7 @@ is preserved in checkpoint `dbd6d47`. This filename remains for stable links.
 ## Current local boundaries
 
 Sudo Launch reads public or explicitly consented private source, discovers projects, researches, generates reviewed
-marketing drafts, and renders escaped source visuals or owner-uploaded media. It does not install/run an
+marketing drafts, and renders escaped source visuals, owner-uploaded media or explicitly approved public-page recordings. It does not install/run an
 input repository, preview its code/issues, provision services, collect deployment
 tokens, or publish social posts.
 
@@ -23,7 +23,7 @@ rate, response-size, media-size, and time bounds.
 
 Public page checks validate HTTPS/443 and resolved IPv4/IPv6 destinations, reject
 private/reserved IPs, pin the validated DNS address, and revalidate redirects.
-Checks fetch text only; they do not execute browsers/subresources or input code.
+Link checks fetch text only. A separate approved capture browser loads public-page resources through pinned transport: GET only, bounded requests/bytes, no saved authenticated session, service workers, sockets or private/reserved destinations. Redirects are intercepted and checked again. Downloaded public-page JavaScript can run inside this capture browser; repository source is not installed or executed.
 Custom model endpoints are configured locally, never through public browser input.
 
 Uploaded footage is validated with FFprobe and rendered with fixed FFmpeg arguments,
@@ -65,4 +65,4 @@ GitHub OAuth `repo` permission is broad, including write access. Only read endpo
 
 Secret files are excluded from source selection; common formats and exact configured keys are redacted. Arbitrary secret detection is incomplete, so the owner must still review excerpts and sharing. Private-project public research starts disabled and warns about query disclosure. Media/receipts/Brag handoffs may contain private source; downloads require the owning session and should be shared deliberately.
 
-The composition browser only renders escaped, app-generated SVG with scripts/network denied. It never navigates to input project pages. Brag integration is an adapted local renderer and upstream handoff, not execution of an unrestricted agent skill.
+The composition browser only renders escaped, app-generated SVG with scripts/network denied. It never navigates to input project pages; the separate approved capture browser does so under the public-network limits above. Brag integration is an adapted local renderer and upstream handoff, not execution of an unrestricted agent skill.

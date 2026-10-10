@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { Job, Capabilities, ModelProvider } from "../shared/types";
+import { launchEvidence } from "../shared/evidence";
 import Readiness from "./Readiness";
+import CaptureControls from "./CaptureControls";
 import { api, getJob } from "./api";
 export type Stage = "overview" | "research" | "strategy" | "studio" | "pack";
 export default function LiveWorkspace({
@@ -61,6 +63,8 @@ export default function LiveWorkspace({
   }, [job.inspection?.private]);
   const mounted = useRef(true);
   const mediaRef = useRef<HTMLDetailsElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const previousRender = useRef(job.phases.render.state);
   const storiesRef = useRef<HTMLDivElement>(null);
   const modelReady = !!capabilities?.models.find((m) => m.provider === model)
     ?.configured;
@@ -79,15 +83,21 @@ export default function LiveWorkspace({
   const [pending, setPending] = useState(false);
   const [query, setQuery] = useState(job.name);
   const [links, setLinks] = useState("");
-  const [site, setSite] = useState("");
+  const [site, setSite] = useState(job.requestedDemoUrl || job.site?.url || "");
   const [narration, setNarration] = useState("");
   const [approved, setApproved] = useState(false);
   const [useVoice, setUseVoice] = useState(false);
   const [useMusic, setUseMusic] = useState(false);
   const [useRecording, setUseRecording] = useState(false);
+  const [useScreenshot, setUseScreenshot] = useState(false);
+  const [useCaptions, setUseCaptions] = useState(true);
+  const [videoFormat, setVideoFormat] = useState<"landscape" | "portrait">(
+    "portrait",
+  );
   const [musicPrompt, setMusicPrompt] = useState(
     "Minimal electronic instrumental for a developer project launch. Warm synth pulse, restrained percussion, optimistic build, clean ending. No vocals.",
   );
+  const [scheduleTime, setScheduleTime] = useState("");
   const [musicApproved, setMusicApproved] = useState(false);
   const [uploading, setUploading] = useState(false);
   const running =
@@ -100,9 +110,9 @@ export default function LiveWorkspace({
       storiesRef.current?.scrollIntoView({ block: "start" });
   }, [job.positioning?.generatedAt]);
   useEffect(() => {
-    setNarration(chosen?.narration || "");
+    setNarration(job.narrationScript || chosen?.narration || "");
     setApproved(false);
-  }, [job.positioning, job.selectedAngle]);
+  }, [job.positioning?.generatedAt, job.selectedAngle, job.narrationScript]);
   useEffect(() => {
     if (job.inspection?.homepage && !site) setSite(job.inspection.homepage);
   }, [job.inspection]);
@@ -114,7 +124,7 @@ export default function LiveWorkspace({
       `## Positioning\n${chosen.title}\n\nAudience: ${chosen.audience}\n\n${chosen.rationale}`,
       `## LinkedIn draft\n${chosen.linkedin}`,
       `## X draft\n${chosen.x}`,
-      `## Narration draft\n${chosen.narration}`,
+      `## ${job.narrationScript ? "Generated narration script" : "Narration draft"}\n${job.narrationScript || chosen.narration}`,
     ];
     if (job.launchStrategy) {
       sections.push(
@@ -124,10 +134,7 @@ export default function LiveWorkspace({
         `## Channels\n${job.launchStrategy.channels.map((c) => `- ${c.name}: ${c.purpose} (${c.timing})`).join("\n")}`,
       );
     }
-    const evidence = [
-      ...(job.inspection?.evidence || []),
-      ...(job.research?.sources || []),
-    ];
+    const evidence = launchEvidence(job);
     sections.push(
       `## References\nRepository: ${job.repository}\nRevision: ${job.inspection?.revision || "Not inspected"}\nModel: ${job.positioning?.provider} / ${job.positioning?.model}\n\n${evidence
         .filter((e) => chosen.evidenceIds.includes(e.id))
@@ -265,27 +272,42 @@ export default function LiveWorkspace({
       );
     }
   }
-  async function upload(file: File) {
-    if (file.size > 30_000_000) {
-      setError("Recording must be at most 30 MB.");
+  async function upload(
+    file: File,
+    kind: "recording" | "screenshot" = "recording",
+  ) {
+    if (file.size > (kind === "screenshot" ? 8_000_000 : 30_000_000)) {
+      setError(
+        kind === "screenshot"
+          ? "Screenshot must be at most 8 MB."
+          : "Recording must be at most 30 MB.",
+      );
       return;
     }
     setUploading(true);
     try {
-      const response = await fetch(`/api/jobs/${job.id}/recording`, {
+      const response = await fetch(`/api/jobs/${job.id}/${kind}`, {
         method: "POST",
         headers: {
           "Content-Type":
             file.type ||
-            (file.name.endsWith(".webm") ? "video/webm" : "video/mp4"),
+            (kind === "screenshot"
+              ? file.name.endsWith(".png")
+                ? "image/png"
+                : "image/jpeg"
+              : file.name.endsWith(".webm")
+                ? "video/webm"
+                : "video/mp4"),
         },
         body: file,
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       onJob(data);
+      if (kind === "screenshot") setUseScreenshot(true);
+      else setUseRecording(true);
       onNotice(
-        "Recording uploaded for validation. User-supplied footage is not automatic verification.",
+        "Asset uploaded for validation. User-supplied footage is not automatic verification.",
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed.");
@@ -297,6 +319,98 @@ export default function LiveWorkspace({
   const audio = job.artifacts.find((a) => a.type === "narration");
   const music = job.artifacts.find((a) => a.type === "music");
   const recording = job.artifacts.find((a) => a.type === "recording");
+  const screenshot = job.artifacts.find((a) => a.type === "screenshot");
+  const captionAsset = job.artifacts.find((a) => a.type === "captions");
+  useEffect(() => {
+    if (previousRender.current === "running" && job.phases.render.state === "completed" && videoRef.current) {
+      videoRef.current.load();
+      if (mediaRef.current) mediaRef.current.open = true;
+      videoRef.current.scrollIntoView({ block: "center" });
+      videoRef.current.focus({ preventScroll: true });
+      onNotice("Your launch video is ready. Preview it, then download your assets.");
+    }
+    previousRender.current = job.phases.render.state;
+  }, [job.phases.render.state]);
+  useEffect(() => {
+    if (job.capture) setUseRecording(true);
+  }, [job.capture?.capturedAt]);
+  useEffect(() => {
+    if (audio) setUseVoice(true);
+  }, [audio?.url, job.narrationScript]);
+  const isWeb = ["static_vite", "server_web", "multi_service"].includes(
+    job.inspection?.profile || "",
+  );
+  const needsDemo = isWeb && job.launchMode !== "prototype";
+  const reviewed = !job.readiness || !!job.readinessReviewedAt;
+  const launchReady = reviewed && (!needsDemo || !!job.site?.reachable);
+  const readinessReview = (
+    <Readiness
+      job={job}
+      busy={running}
+      modelReady={modelReady}
+      onCopy={(text, label) => void copy(text, label)}
+      onReview={() => void act("readiness-review", { acknowledged: true })}
+      onAnalyze={() => void act("analyze", { provider: model })}
+    >
+      {isWeb && (
+        <div className="deployment-check">
+          <label htmlFor="launch-mode">
+            How are you launching this project?
+          </label>
+          <select
+            id="launch-mode"
+            value={job.launchMode === "prototype" ? "prototype" : "live"}
+            disabled={running}
+            onChange={(e) => void act("launch-mode", { mode: e.target.value })}
+          >
+            <option value="live">Live web product — demo URL required</option>
+            <option value="prototype">
+              Prototype — invite feedback, do not claim a live product
+            </option>
+          </select>
+          {needsDemo && (
+            <>
+              <p>
+                Deploy your project with your preferred host first, then add its
+                public demo link. We will check that it is reachable before
+                drafting launch posts.
+              </p>
+              <form
+                className="inline-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void act("verify", { url: site });
+                }}
+              >
+                <label htmlFor="readiness-url">Deployed project URL</label>
+                <input
+                  id="readiness-url"
+                  type="url"
+                  value={site}
+                  placeholder="https://your-project.example"
+                  onChange={(e) => setSite(e.target.value)}
+                  required
+                  disabled={running}
+                />
+                <button className="outline" disabled={running || !site}>
+                  Check deployed link →
+                </button>
+              </form>
+              {job.site && (
+                <p className="footnote">
+                  {job.site.reachable
+                    ? "✓ Link reachable"
+                    : "Link check failed"}{" "}
+                  · HTTP {job.site.httpStatus}. Main interactions still need
+                  review.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </Readiness>
+  );
   return (
     <section className="workspace-grid">
       <div
@@ -386,6 +500,7 @@ export default function LiveWorkspace({
                 ))}
               </ol>
             )}
+            {readinessReview}
             <div className="brief-layout">
               <form
                 className="brief-editor"
@@ -448,14 +563,16 @@ export default function LiveWorkspace({
                 <div className="flow-actions">
                   <button
                     className="primary"
-                    disabled={running || !job.inspection}
+                    disabled={running || !job.inspection || !launchReady}
                   >
                     Continue to launch stories →
                   </button>
                   <span>
-                    {job.analysis
-                      ? "Suggestions need your confirmation."
-                      : "You can write the brief yourself."}
+                    {!launchReady
+                      ? "Review readiness and add a demo URL (or choose prototype) first."
+                      : job.analysis
+                        ? "Suggestions need your confirmation."
+                        : "You can write the brief yourself."}
                   </span>
                 </div>
                 {!job.inspection && !running && (
@@ -530,12 +647,7 @@ export default function LiveWorkspace({
                 </ul>
               </aside>
             </div>
-            <Readiness
-              job={job}
-              onCopy={(text, label) => {
-                void copy(text, label);
-              }}
-            />
+
             <details className="source-disclosure">
               <summary>
                 <span>Source evidence & review notes</span>
@@ -727,6 +839,18 @@ export default function LiveWorkspace({
                 </details>
               </div>
             </details>
+            {!launchReady && (
+              <div className="setup-needed">
+                <strong>Review readiness before writing posts.</strong>
+                <p>
+                  Check the suggestions and provide a reachable demo URL, or
+                  choose a prototype launch.
+                </p>
+                <button className="outline" onClick={() => onStage("overview")}>
+                  Check project readiness →
+                </button>
+              </div>
+            )}
             <div className="generation-controls">
               <div className="model-summary">
                 <span className="micro">GENERATION MODEL</span>
@@ -748,6 +872,7 @@ export default function LiveWorkspace({
                     running ||
                     !job.inspection ||
                     !job.launchBrief ||
+                    !launchReady ||
                     (includeResearch && query.trim().length < 2)
                   }
                   onClick={() => void generateStories()}
@@ -994,6 +1119,50 @@ export default function LiveWorkspace({
                 </button>
               </div>
             )}
+            {chosen && (
+              <section className="launch-calendar">
+                <h3>Plan your launch week.</h3>
+                <p>
+                  Set reminders for LinkedIn, X, Instagram and a feedback
+                  follow-up. Import the calendar into Google Calendar, Apple
+                  Calendar or Outlook, then review and publish each post
+                  yourself.
+                </p>
+                <label htmlFor="schedule-time">
+                  First post time · your local timezone
+                </label>
+                <input
+                  id="schedule-time"
+                  type="datetime-local"
+                  value={scheduleTime}
+                  onChange={(e) => setScheduleTime(e.target.value)}
+                />
+                <button
+                  className="outline"
+                  disabled={!scheduleTime}
+                  onClick={() => {
+                    const date = new Date(scheduleTime);
+                    if (
+                      !Number.isFinite(date.getTime()) ||
+                      date.getTime() <= Date.now()
+                    ) {
+                      setError("Choose a future post time.");
+                      return;
+                    }
+                    const link = document.createElement("a");
+                    link.href = `/api/jobs/${job.id}/calendar?start=${encodeURIComponent(date.toISOString())}`;
+                    link.download = "sudo-launch-calendar.ics";
+                    link.click();
+                  }}
+                >
+                  Download launch calendar →
+                </button>
+                <p className="footnote">
+                  Calendar reminders are scheduled. Social posts are not
+                  published automatically.
+                </p>
+              </section>
+            )}
             <details className="media-addon" ref={mediaRef}>
               <summary>
                 <div>
@@ -1012,13 +1181,38 @@ export default function LiveWorkspace({
                 <p className="section-intro">
                   A 25-second Brag-inspired promo: hook, reveal, source or
                   footage, and a clear next step. Review the storyboard first.
-                  This does not run the product.
+                  Capture a public demo with approved steps or add your own visuals.
                 </p>
+                <label htmlFor="video-format">Video format</label>
+                <select
+                  id="video-format"
+                  value={videoFormat}
+                  disabled={running}
+                  onChange={(e) =>
+                    setVideoFormat(e.target.value as "landscape" | "portrait")
+                  }
+                >
+                  <option value="portrait">
+                    Portrait · 1080×1920 · Reels / Shorts
+                  </option>
+                  <option value="landscape">
+                    Landscape · 1280×720 · LinkedIn / X
+                  </option>
+                </select>
+                <CaptureControls
+                  job={job}
+                  busy={running}
+                  available={!!capabilities?.promo}
+                  recorderAvailable={!!capabilities?.capture}
+                  format={videoFormat}
+                  onCapture={(body) => void act("capture", body)}
+                  onScreenshot={(file) => void upload(file, "screenshot")}
+                />
                 {!job.storyboard ? (
                   <button
                     className="outline"
                     disabled={running || !chosen}
-                    onClick={() => void act("storyboard", {})}
+                    onClick={() => void act("storyboard", {visual:useRecording && recording ? "recording" : useScreenshot && screenshot ? "screenshot" : "source"})}
                   >
                     Prepare video storyboard →
                   </button>
@@ -1039,6 +1233,7 @@ export default function LiveWorkspace({
                       ))}
                     </div>
                     <div className="studio-controls">
+                      <button className="outline" disabled={running} onClick={()=>void act("storyboard",{visual:useRecording && recording ? "recording" : useScreenshot && screenshot ? "screenshot" : "source"})}>Refresh storyboard →</button>
                       <button
                         className="text-button"
                         onClick={() => {
@@ -1079,8 +1274,12 @@ export default function LiveWorkspace({
                   <div className="studio-visuals">
                     {video ? (
                       <video
+                        ref={videoRef}
+                        aria-label="Rendered launch video"
+                        tabIndex={0}
                         className="video-preview"
                         src={video.url}
+                        poster={job.artifacts.find(a => a.type === "poster")?.url}
                         controls
                         preload="metadata"
                       />
@@ -1235,6 +1434,24 @@ export default function LiveWorkspace({
                   />
                   Use my recording in the middle scene
                 </label>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={useScreenshot}
+                    disabled={!screenshot || useRecording}
+                    onChange={(e) => setUseScreenshot(e.target.checked)}
+                  />
+                  Use my screenshot in the middle scene
+                </label>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={useCaptions}
+                    disabled={!captionAsset || !useVoice}
+                    onChange={(e) => setUseCaptions(e.target.checked)}
+                  />
+                  Burn captions aligned to my narration
+                </label>
                 <div className="studio-controls">
                   <button
                     className="primary"
@@ -1246,6 +1463,10 @@ export default function LiveWorkspace({
                         useNarration: useVoice && !!audio,
                         useMusic: useMusic && !!music,
                         useRecording: useRecording && !!recording,
+                        useScreenshot:
+                          useScreenshot && !!screenshot && !useRecording,
+                        useCaptions: useCaptions && !!captionAsset && useVoice,
+                        format: videoFormat,
                       })
                     }
                   >
@@ -1266,9 +1487,11 @@ export default function LiveWorkspace({
                   )}
                 </div>
                 <p className="footnote">
-                  25 seconds · 1280×720 MP4 + poster. Real source cards are used
-                  when no recording is selected. Source visuals are not evidence
-                  of working interactions.
+                  25 seconds ·{" "}
+                  {videoFormat === "portrait" ? "1080×1920" : "1280×720"} MP4 +
+                  poster. Real source cards are used when no recording is
+                  selected. Source visuals are not evidence of working
+                  interactions.
                 </p>
                 {!capabilities?.promo && (
                   <p className="footnote">
@@ -1316,10 +1539,7 @@ export default function LiveWorkspace({
                   verification.
                 </p>
                 {chosen?.evidenceIds.map((id) => {
-                  const evidence = [
-                    ...(job.inspection?.evidence || []),
-                    ...(job.research?.sources || []),
-                  ].find((e) => e.id === id);
+                  const evidence = launchEvidence(job).find((e) => e.id === id);
                   return (
                     evidence && (
                       <p key={id}>

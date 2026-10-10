@@ -102,7 +102,19 @@ export interface Job {
   brief: string;
   launchBrief?: LaunchBrief;
   repoFirst?: boolean;
+  requestedDemoUrl?: string;
   privateConsent?: boolean;
+  launchMode?: "live" | "prototype" | "source";
+  readinessReviewedAt?: string;
+  narrationScript?: string;
+  captions?: { start: number; end: number; text: string }[];
+  capture?: {
+    url: string;
+    capturedAt: string;
+    steps: string[];
+    format: "landscape" | "portrait";
+    coverage: string;
+  };
   progressStep?: string;
   analysis?: ProjectAnalysis;
   readiness?: ReadinessReview;
@@ -118,7 +130,14 @@ export interface Job {
   launchStrategy?: LaunchStrategy;
   site?: SiteCheck;
   artifacts: {
-    type: "recording" | "narration" | "music" | "video" | "poster";
+    type:
+      | "recording"
+      | "narration"
+      | "music"
+      | "video"
+      | "poster"
+      | "screenshot"
+      | "captions";
     url: string;
     provenance: string;
   }[];
@@ -130,6 +149,7 @@ export interface Capabilities {
   narration: boolean;
   music?: boolean;
   promo?: boolean;
+  capture?: boolean;
   githubAuth?: {
     configured: boolean;
     localTokenAvailable: boolean;
@@ -142,6 +162,7 @@ export interface Capabilities {
 }
 
 export interface ProjectAnalysis {
+  findings?: ReadinessFinding[];
   summary: string;
   suggestedBrief: LaunchBrief;
   assumptions: string[];
@@ -151,6 +172,9 @@ export interface ProjectAnalysis {
   generatedAt: string;
 }
 export interface ReadinessFinding {
+  origin?: "source" | "ai";
+  recommendation?: string;
+  evidenceQuote?: string;
   id: string;
   severity: "review" | "action";
   title: string;
@@ -164,6 +188,7 @@ export interface ReadinessReview {
   agentPrompt: string;
 }
 export interface Storyboard {
+  visual?: "source" | "recording" | "screenshot";
   duration: number;
   scenes: { label: string; heading: string; detail: string; seconds: number }[];
   sourceVisual: { file: string; excerpt: string };

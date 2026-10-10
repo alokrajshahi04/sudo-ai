@@ -140,3 +140,73 @@ export function plainText(html: string) {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+// Browser capture loads every resource through this pinned transport. Redirects
+// remain visible to Chromium and are validated again on the next intercepted GET.
+export async function fetchPublicResource(
+  value: string,
+  limit = 8_000_000,
+): Promise<{ status: number; headers: Record<string, string>; body: Buffer }> {
+  const url = publicUrl(value);
+  const addresses = await lookup(url.hostname, { all: true });
+  if (!addresses.length || addresses.some((a) => !publicAddress(a.address)))
+    throw new AppError(
+      400,
+      "Private and reserved capture destinations are blocked.",
+    );
+  const target = addresses[0];
+  return new Promise((resolve, reject) => {
+    const request = https.request(
+      url,
+      {
+        method: "GET",
+        family: target.family,
+        headers: {
+          "User-Agent": "SudoLaunch-Capture/0.1",
+          "Accept-Encoding": "identity",
+        },
+        lookup: (_name, _options, callback) =>
+          callback(null, target.address, target.family),
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        let size = 0;
+        response.on("data", (chunk: Buffer) => {
+          size += chunk.length;
+          if (size > limit)
+            response.destroy(
+              new AppError(400, "Capture resource exceeds its size limit."),
+            );
+          else chunks.push(chunk);
+        });
+        response.on("end", () => {
+          const headers: Record<string, string> = {};
+          for (const [name, value] of Object.entries(response.headers))
+            if (
+              typeof value === "string" &&
+              ![
+                "set-cookie",
+                "transfer-encoding",
+                "connection",
+                "content-length",
+              ].includes(name)
+            )
+              headers[name] = value;
+          resolve({
+            status: response.statusCode || 502,
+            headers,
+            body: Buffer.concat(chunks),
+          });
+        });
+        response.on("error", reject);
+      },
+    );
+    const timer = setTimeout(
+      () => request.destroy(new AppError(504, "Capture resource timed out.")),
+      10_000,
+    );
+    request.on("close", () => clearTimeout(timer));
+    request.on("error", reject);
+    request.end();
+  });
+}

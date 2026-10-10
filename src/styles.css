@@ -2240,6 +2240,7 @@ input[type="file"]::file-selector-button {
 .studio-media-layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 26px; align-items: start; margin: 18px 0; }
 .studio-visuals, .studio-audio { min-width: 0; }
 .studio-visuals .video-placeholder, .studio-visuals .video-preview { width: 100%; max-height: none; aspect-ratio: 16/9; min-height: 180px; object-fit: contain; margin-top: 0; }
+.studio-visuals .video-preview { width: auto; height: auto; max-width: 100%; max-height: 480px; aspect-ratio: auto; margin: 0 auto; display: block; }
 .studio-audio .inline-form { margin-top: 0; }
 .studio-audio .music-controls { margin-top: 16px; padding-top: 16px; }
 .studio-audio textarea { min-height: 80px; }
@@ -2250,3 +2251,31 @@ input[type="file"]::file-selector-button {
 .api-connection-warning > strong { color: #ecc790; }
 .api-connection-warning p { margin: 10px 0; line-height: 1.7; }
 .github-connect .text-button { justify-self: start; padding: 0; margin: 0; }
+
+.readiness-panel { border-left: 3px solid var(--accent, #e52c22); background: #141411; margin: 18px 0 26px; }
+.readiness-panel > p { font-size: 13px; line-height: 1.7; max-width: 80ch; color: #c2c0b8; }
+.readiness-preview { padding-left: 18px; color: #d8c49c; font-size: 12px; line-height: 1.9; }
+.readiness-quote { margin: 12px 0; padding: 12px; border-left: 2px solid #57534a; background: #0c0c0b; font: 11px/1.7 monospace; overflow-wrap: anywhere; white-space: pre-wrap; }
+.deployment-check { margin: 20px 0; padding: 16px; border: 1px solid #514632; background: #1a1711; }
+.deployment-check label { display: block; margin-bottom: 8px; font-size: 12px; }
+.deployment-check select, .deployment-check input { width: 100%; margin-bottom: 12px; }
+.deployment-check p { font-size: 12px; line-height: 1.7; }
+.readiness-panel .flow-actions { flex-wrap: wrap; }
+.readiness-panel .primary { white-space: normal; }
+.capture-controls { margin: 20px 0; padding: 20px; border: 1px solid #394439; background: #101510; }
+.capture-controls h3 { font-size: 16px; margin: 0 0 10px; }
+.capture-controls p, .capture-controls li { font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.capture-form { margin: 16px 0; }
+.capture-form summary { cursor: pointer; font-size: 13px; }
+.capture-form label { display: block; font-size: 12px; margin: 18px 0 8px; }
+.capture-form input[type=url], .capture-form textarea { width: 100%; }
+.capture-plan { background: #191e18; padding: 14px; margin: 16px 0; font-size: 12px; }
+.capture-plan ol { padding-left: 18px; }
+.capture-form .checkbox-label { display: flex; }
+.capture-preview, .screenshot-preview { display: block; width: 100%; max-height: 380px; object-fit: contain; background: #080a08; margin: 16px 0; }
+.capture-receipt { padding: 16px; border-left: 2px solid #81a988; margin: 16px 0; }
+.launch-calendar { margin: 24px 0; padding: 20px; border: 1px solid #383c33; background: #11140f; }
+.launch-calendar h3 { margin-top: 0; font-size: 16px; }
+.launch-calendar p { font-size: 12px; line-height: 1.7; max-width: 80ch; }
+.launch-calendar label { display: block; font-size: 12px; margin: 16px 0 8px; }
+.launch-calendar input { width: min(100%, 320px); display: block; margin-bottom: 14px; color-scheme: dark; }

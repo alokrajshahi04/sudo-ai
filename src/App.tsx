@@ -81,6 +81,7 @@ export default function App() {
       () => savedModel() || "google",
     ),
     [repo, setRepo] = useState(""),
+    [demoUrl,setDemoUrl]=useState(""),
     [privateConsent, setPrivateConsent] = useState(false),
     [formError, setFormError] = useState(""),
     [creating, setCreating] = useState(false);
@@ -380,6 +381,7 @@ export default function App() {
         repository: repo,
         model,
         privateConsent,
+        ...(demoUrl.trim() ? {demoUrl:demoUrl.trim()} : {}),
       });
       updateJob(next);
       setStage("overview");
@@ -410,6 +412,7 @@ export default function App() {
   }
   function chooseProject(project: ProjectCandidate) {
     setRepo(project.repository);
+    setDemoUrl(project.homepage || "");
     setPrivateConsent(false);
     open("new");
   }
@@ -957,6 +960,9 @@ export default function App() {
               placeholder="https://github.com/you/project"
               onChange={(e) => setRepo(e.target.value)}
             />
+            <label htmlFor="demo-url">Deployed project URL <span className="dim">Optional · add it if available</span></label>
+            <input id="demo-url" type="url" value={demoUrl} maxLength={1000} placeholder="https://your-project.example" onChange={e=>setDemoUrl(e.target.value)}/>
+            <p className="footnote">Web products need a reachable demo before launch posts. You can also launch an explicitly labeled prototype; CLI/library projects can use their repository.</p>
             <div className="dialog-info">
               {capabilities?.models.find((m) => m.provider === model)
                 ?.configured

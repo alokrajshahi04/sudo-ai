@@ -148,6 +148,7 @@ async function mockApi(
         narration: !!options.media,
         render: !!options.media,
         promo: !!options.media,
+        capture: !!options.media,
         music: !!options.media,
         hostedCredentialEntry: false,
         research: "public",
@@ -190,6 +191,7 @@ async function mockApi(
         );
         job.launchBrief = body.launchBrief;
         job.modelPreference = body.model ?? "google";
+        if(body.demoUrl)job.site={url:body.demoUrl,finalUrl:body.demoUrl,httpStatus:200,reachable:true,title:"Fixture",checkedAt:new Date().toISOString(),builtRevision:null,interaction:"not_checked"};
         job.brief = body.brief || "";
         if (options.configured ?? true) {
           job.analysis = {
@@ -275,6 +277,17 @@ async function mockApi(
         workflow: "Brag-inspired",
       };
       data = job;
+    } else if(method === "POST" && path.endsWith("/readiness-review")) {
+      job.readinessReviewedAt=new Date().toISOString();data=job;
+    } else if(method === "POST" && path.endsWith("/launch-mode")) {
+      job.launchMode=route.request().postDataJSON().mode;data=job;
+    } else if(method === "POST" && path.endsWith("/verify")) {
+      const url=route.request().postDataJSON().url;
+      job.site={url,finalUrl:url,httpStatus:200,reachable:true,title:"Fixture demo",checkedAt:new Date().toISOString(),builtRevision:null,interaction:"not_checked"};data=job;
+    } else if(method === "POST" && path.endsWith("/capture")) {
+      const body=route.request().postDataJSON();
+      job.capture={url:body.url,capturedAt:new Date().toISOString(),steps:["Opened the public page"],format:body.format,coverage:"Fixture capture for UI behavior only."};
+      job.artifacts=[{type:"recording",url:"/fixture-video.webm",provenance:"UI fixture"},{type:"screenshot",url:"/fixture-image.png",provenance:"UI fixture"}];data=job;
     } else if (method === "POST" && path.endsWith("/promo")) {
       job.phases.render = { state: "running" };
       data = job;
@@ -733,8 +746,9 @@ test("readiness gives a portable coding-agent handoff with source references", a
   };
   await mockApi(page, { restored: job });
   await page.goto("/");
+  await page.getByRole("button", { name: "Check project readiness →" }).click();
   await page
-    .getByText("Inspect the findings & one-shot fix prompt", { exact: true })
+    .getByText("One-shot coding-agent handoff", { exact: true })
     .click();
   await expect(page.getByLabel("Paste into your coding agent")).toHaveValue(
     job.readiness.agentPrompt,
@@ -824,4 +838,33 @@ test("API outage is explained in discovery and recovers without reloading or Git
   await expect(
     page.getByRole("heading", { name: "community-tool", exact: true }),
   ).toBeVisible();
+});
+
+test("readiness gate is visible before the brief and a web launch requires a demo or prototype choice",async({page},testInfo)=>{
+ const job=fixture("web-product","static_vite");job.launchMode="live";
+ job.readiness={coverage:"Bounded source review",agentPrompt:"Verify a browser credential issue before fixing.",findings:[{id:"ai-1",origin:"ai",severity:"review",title:"Review browser credentials",detail:"A privileged key appears in browser source.",recommendation:"Verify the built bundle.",evidenceQuote:"process.env.API_KEY",files:["src/App.tsx"],evidenceIds:["source-readme"]}]};
+ const backend=await mockApi(page,{restored:job});await page.goto('/');
+ await expect(page.getByText('Review browser credentials',{exact:true})).toBeVisible();
+ const continueButton=page.getByRole('button',{name:'Continue to launch stories →'});await expect(continueButton).toBeDisabled();
+ await page.getByRole('button',{name:'Check project readiness →'}).click();
+ await expect(page.getByText('process.env.API_KEY',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'I reviewed the findings →'}).click();await expect(continueButton).toBeDisabled();
+ await page.getByLabel('Deployed project URL',{exact:true}).fill('https://demo.example');
+ await page.getByRole('button',{name:'Check deployed link →'}).click();await expect(continueButton).toBeEnabled();
+ expect(backend.calls).not.toContain('position');
+ await page.screenshot({path:testInfo.outputPath('readiness-gate.png')});
+});
+test("deployed capture requires reviewed steps and keeps footage visible before rendering",async({page},testInfo)=>{
+ const job=fixture();job.positioning=positioning();job.launchStrategy={launchType:'showcase',angleTitle:job.positioning!.angles[0].title,createdAt:new Date().toISOString(),checklist:[],channels:[]};
+ const backend=await mockApi(page,{restored:job,media:true});await page.goto('/');
+ await page.getByText('Create a launch video',{exact:true}).click();
+ await expect(page.getByLabel('Video format',{exact:true})).toHaveValue('portrait');
+ await page.getByLabel('Public demo URL',{exact:true}).fill('https://demo.example');
+ await page.getByLabel('Buttons to click',{exact:false}).fill('Show demo');
+ const recordButton=page.getByRole('button',{name:'Record deployed demo →'});await expect(recordButton).toBeDisabled();
+ await page.getByLabel('I reviewed these steps and approve recording this public demo.').check();
+ await recordButton.click();await expect(page.getByText('✓ Real footage captured',{exact:true})).toBeVisible();
+ expect(backend.calls).toContain('capture');
+ await expect(page.getByLabel('Use my recording in the middle scene')).toBeChecked();
+ await page.screenshot({path:testInfo.outputPath('capture-flow.png')});
 });

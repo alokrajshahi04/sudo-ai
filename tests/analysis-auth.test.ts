@@ -42,6 +42,7 @@ test("analysis rejects invented evidence and action fields; readiness is bounded
     },
     assumptions: ["Confirm audience"],
     evidenceIds: ["source-1"],
+    findings: [],
   };
   assert.deepEqual(validateAnalysis(result, new Set(["source-1"])), result);
   assert.throws(() =>

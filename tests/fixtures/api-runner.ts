@@ -17,7 +17,9 @@ globalThis.fetch = async (input, init) => {
             content: {
               parts: [
                 {
-                  text: JSON.stringify({
+                  text: JSON.stringify(String(init?.body).includes("bounded positioning specialist") ? {
+                    angles:[0,1].map(i=>({title:`Prototype story ${i}`,audience:"Students",rationale:"Source-backed prototype",evidenceIds:["source-1"],linkedin:"A prototype seeking feedback.",x:"Try a prototype.",narration:"A prototype seeking useful feedback."})),limitations:["Runtime not verified"],
+                  } : {
                     summary: "A source-based prototype",
                     suggestedBrief: {
                       audience: "Student developers",
