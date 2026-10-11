@@ -77,7 +77,7 @@ const origins = new Set([
 ]);
 if (hosting.publicOrigin) origins.add(hosting.publicOrigin);
 app.get("/healthz", (_req, res) => res.json({ status: "ok" }));
-if (hosting.publicOrigin)
+if (hosting.accessRequired)
   app.use(
     demoAccess(
       process.env.SUDO_DEMO_USERNAME!,

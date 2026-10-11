@@ -4,7 +4,12 @@ import type { RequestHandler } from "express";
 export function hostingConfig(env: NodeJS.ProcessEnv = process.env) {
   const raw = env.SUDO_PUBLIC_ORIGIN || env.RENDER_EXTERNAL_URL;
   if (!raw)
-    return { publicOrigin: null, bind: "127.0.0.1", secureCookies: false };
+    return {
+      publicOrigin: null,
+      bind: "127.0.0.1",
+      secureCookies: false,
+      accessRequired: false,
+    };
   const url = new URL(raw);
   if (
     url.protocol !== "https:" ||
@@ -15,15 +20,24 @@ export function hostingConfig(env: NodeJS.ProcessEnv = process.env) {
     url.hash
   )
     throw new Error("SUDO_PUBLIC_ORIGIN must be a single HTTPS origin.");
+  const accessMode = env.SUDO_DEMO_ACCESS || "password";
+  if (accessMode !== "public" && accessMode !== "password")
+    throw new Error("SUDO_DEMO_ACCESS must be public or password.");
   if (
-    !env.SUDO_DEMO_USERNAME ||
-    !env.SUDO_DEMO_PASSWORD ||
-    env.SUDO_DEMO_PASSWORD.length < 16
+    accessMode === "password" &&
+    (!env.SUDO_DEMO_USERNAME ||
+      !env.SUDO_DEMO_PASSWORD ||
+      env.SUDO_DEMO_PASSWORD.length < 16)
   )
     throw new Error(
       "Hosted demos require SUDO_DEMO_USERNAME and a SUDO_DEMO_PASSWORD of at least 16 characters.",
     );
-  return { publicOrigin: url.origin, bind: "0.0.0.0", secureCookies: true };
+  return {
+    publicOrigin: url.origin,
+    bind: "0.0.0.0",
+    secureCookies: true,
+    accessRequired: accessMode === "password",
+  };
 }
 
 export function demoAccess(username: string, password: string): RequestHandler {

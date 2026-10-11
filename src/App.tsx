@@ -174,7 +174,7 @@ export default function App() {
     if (authResult) {
       setNotice(
         authResult === "connected"
-          ? "GitHub connected. Your token stays on this local server."
+          ? "GitHub connected. Your token stays on the server for this session."
           : "GitHub sign-in failed or expired. Open Settings and reconnect; public profile discovery still works.",
       );
       history.replaceState(null, "", location.pathname);
@@ -427,9 +427,13 @@ export default function App() {
           <span className="preview-badge">
             <i />
             {job
-              ? "Local job"
+              ? capabilities?.mode === "hosted-demo"
+                ? "Saved launch"
+                : "Local job"
               : capabilities
-                ? "Local mode"
+                ? capabilities.mode === "hosted-demo"
+                  ? "Live demo"
+                  : "Local mode"
                 : apiError
                   ? "API unavailable"
                   : "Connecting…"}

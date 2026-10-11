@@ -2,7 +2,7 @@
 
 **Turn your GitHub project into a launch people understand.**
 
-[Hosted evaluation demo](https://sudo-launch.onrender.com) · requires the demo owner's access credentials. Run locally below to use your own keys.
+[Try the live demo](https://sudo-launch.onrender.com) · open your own public GitHub project using the owner's configured providers during the evaluation. Run locally below to use your own keys.
 
 Sudo Launch helps student and solo developers explain, demonstrate and share projects that would otherwise stay in a repo. Paste a GitHub URL or discover projects on your profile, review concrete source-backed suggestions, confirm the audience, and choose a launch story. Get saved editable LinkedIn/X/Instagram drafts, a five-slide carousel, a sharing plan and an optional 25-second video in one ZIP.
 
@@ -36,13 +36,13 @@ Open http://localhost:5173. Add your own provider credentials to the ignored `.e
 
 The default app runs on localhost. Jobs, reviewed edits and media persist in ignored `.local/sudo-launch.sqlite` for seven days (`SUDO_RETENTION_DAYS`); deletion removes the job and its media. The database has owner-only file permissions and contains project content, not provider keys or GitHub tokens. Keep the same browser cookie to resume your jobs. Interrupted operations require an explicit retry; paid calls never retry automatically.
 
-## Host a restricted demo on Render
+## Host a demo on Render
 
 The included [Render Blueprint](render.yaml) builds a Docker web service with Chromium, FFmpeg and a persistent SQLite disk. It selects **1 CPU / 2 GB RAM at $25/month**, billed proportionally to running time, plus a 1 GB disk at $0.25/month. Render's free web service has 512 MB RAM; the advertised 25 MB belongs to its Key Value service. The larger web instance is recommended for video capture and rendering.
 
-Connect this repository through Render's **New → Blueprint** flow, supply the Nebius/ElevenLabs credentials when prompted, and keep automatic deployments disabled until you choose to update. The generated `SUDO_DEMO_PASSWORD` and username `judge` protect the UI, API and media with HTTPS Basic authentication. Set a separate GitHub OAuth callback to `https://YOUR-SERVICE.onrender.com/api/auth/github/callback` if you enable sign-in. Public repo discovery works without OAuth.
+Connect this repository through Render's **New → Blueprint** flow, supply the Nebius/ElevenLabs credentials when prompted, and keep automatic deployments disabled until you choose to update. The Blueprint sets `SUDO_DEMO_ACCESS=public`: visitors can open the app and use their own repos without a site password, spending the owner's configured provider quota. To restrict access, set `SUDO_DEMO_ACCESS=password`; the generated `SUDO_DEMO_PASSWORD` and username `judge` then enable HTTPS Basic authentication. Set a separate GitHub OAuth callback to `https://YOUR-SERVICE.onrender.com/api/auth/github/callback` if you enable sign-in. Public repo discovery works without OAuth.
 
-Hosted mode allows one operation at a time. Video composition closes Chromium before FFmpeg encoding to reduce peak memory. Session-owned jobs use the persistent disk; your local database and prepared demo files are excluded from the image. This is an owner-funded demo for people you give access to. A public BYOK product still requires per-user authentication, encrypted credentials and isolated workers. See [hosting details](docs/hosting.md).
+Hosted mode allows one operation at a time. Video composition closes Chromium before FFmpeg encoding to reduce peak memory. Each visitor's jobs and media belong to their browser session and use the persistent disk; your local database and prepared demo files are excluded from the image. Visitors cannot enter provider keys on the hosted site. After evaluation, revoke the provider keys to stop new paid generations, or switch back to password access. A hosted product accepting users' own keys still requires encrypted credentials and isolated workers. See [hosting details](docs/hosting.md).
 
 ## Development and demo
 

@@ -1,6 +1,6 @@
 # Render demo deployment
 
-Hosted evaluation URL: https://sudo-launch.onrender.com. It requires the owner's demo access credentials; it is not an open public BYOK service.
+Hosted evaluation URL: https://sudo-launch.onrender.com. Visitors can open the app and try their own public GitHub repositories without a site password. During evaluation, generation uses the owner's configured provider APIs; visitors do not enter their own API keys on the hosted site.
 
 Use the repository's `render.yaml` through Render's Blueprint dashboard. The Docker image installs Chromium, its recording encoder, system FFmpeg and the built React UI. One Node service serves both the UI and `/api`.
 
@@ -20,9 +20,11 @@ Enter provider keys through Render's secret environment configuration. Never com
 
 For direct CLI/API deployment, create an API key at [Render Account Settings](https://dashboard.render.com/u/settings?add-api-key), save it privately in the local `.env` as `RENDER_API_KEY`, and never paste it into chat. Dashboard Blueprint deployment does not require an API key.
 
-`RENDER_EXTERNAL_URL` enables HTTPS hosted mode automatically. Outside Render, set `SUDO_PUBLIC_ORIGIN` to the exact HTTPS origin. Hosted startup requires `SUDO_DEMO_USERNAME` and `SUDO_DEMO_PASSWORD` (at least 16 characters). The Blueprint generates a password; retrieve it privately from the Render dashboard. Give those access credentials only to intended demo users: their approved generation spends your configured provider quota. All UI/API/media routes require authentication except `/healthz`, which returns only status. Session cookies are HttpOnly, Secure and SameSite Strict. Mutation requests still require the application Origin.
+`RENDER_EXTERNAL_URL` enables HTTPS hosted mode automatically. Outside Render, set `SUDO_PUBLIC_ORIGIN` to the exact HTTPS origin. `SUDO_DEMO_ACCESS=public` opens the UI and API to visitors without a site password; their approved generation spends your configured provider quota. The Blueprint selects this mode. `SUDO_DEMO_ACCESS=password` (the default when unset) requires `SUDO_DEMO_USERNAME` and `SUDO_DEMO_PASSWORD` of at least 16 characters and gates the UI/API/media using HTTPS Basic authentication. `/healthz` remains public. Both modes use HttpOnly, Secure, SameSite Strict session cookies and require the application Origin for mutations.
 
-Jobs are scoped to each browser session and retained for seven days by default. Refreshing with the same cookie restores them. Clearing cookies loses access; GitHub connections must be re-established after restarts. Deleting a job also deletes its saved media. The app is a restricted demo rather than a public multi-user credentials service.
+Jobs are scoped to each browser session and retained for seven days by default. Refreshing with the same cookie restores them. Clearing cookies loses access; GitHub connections must be re-established after restarts. Deleting a job also deletes its saved media. Visitors cannot read another session's jobs or media. Existing limits allow five jobs per session, 30 jobs overall, 100 sessions, 30 mutations per session per minute and one hosted worker operation at a time. This is an owner-funded evaluation demo; hosted entry of visitor provider keys is disabled.
+
+After the event, revoke the provider keys in their provider dashboards to stop paid generation. Removing a key from Render's environment requires a redeploy to apply; revoking it at the provider invalidates the running service's access too. The page and saved assets can remain available. To close access again, set `SUDO_DEMO_ACCESS=password` and redeploy.
 
 For GitHub OAuth, register the exact hosted callback `https://YOUR-SERVICE.onrender.com/api/auth/github/callback`, then set the hosted app's client ID and secret. Use a separate OAuth app if you need local and hosted demos simultaneously. Do not copy a broad personal GitHub token into a service shared with judges.
 
@@ -32,6 +34,6 @@ For the current evaluation service, the callback is `https://sudo-launch.onrende
 
 The Docker build excludes `.env`, `.local`, databases, browser states and local videos. Automatic deployments are disabled so new GitHub commits do not replace a working evaluation demo unexpectedly. Deploy the intended main-branch commit manually.
 
-After deployment, check `/healthz`, the authentication prompt, API capabilities, public repository discovery and a saved-session refresh. Test actual narration and video generation with a small public repo before evaluation. Local prepared launch videos remain useful offline backups; they are not automatically included on the deployed service. Monitor memory and provider quotas in their dashboards. Suspend the compute service when you no longer need it; retained disks can continue to incur storage charges.
+After deployment, check `/healthz`, access without a password in public mode (or the authentication prompt in password mode), API capabilities, public repository discovery and a saved-session refresh. Test actual narration and video generation with a small public repo before evaluation. Local prepared launch videos remain useful offline backups; they are not automatically included on the deployed service. Monitor memory and provider quotas in their dashboards. Suspend the compute service when you no longer need it; retained disks can continue to incur storage charges.
 
 The initial hosted verification on 2026-10-11 completed public discovery (23 eligible projects), actual Nebius positioning, bounded Chromium capture of PokeChess, reviewed copy, real ElevenLabs aligned narration, five carousel PNGs and a 25-second portrait MP4/ZIP. The capture opened the project, pressed Start, skipped onboarding and opened the Pokédex; it does not certify chess gameplay, AI or multiplayer. Verification files and the browser's session cookie remain private under `.local/render-verification/`.
