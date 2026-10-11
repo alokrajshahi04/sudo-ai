@@ -1,5 +1,7 @@
 # Evaluation demo: Sudo Launch
 
+**For the final 2-minute-50-second slot, use [the timed final pitch](final-pitch.md).** It includes the screen sequence, offline video fallback and judge Q&A. The longer walkthrough below is a reference for untimed practice.
+
 Pitch: **Developers can build fast but struggle to explain and share what they built. Sudo Launch turns a GitHub repository into a reviewed story, real demo assets and a practical launch pack.**
 
 ## Five-minute walkthrough
@@ -27,11 +29,11 @@ Current downloaded proof files live in ignored `.local/evaluation/`: `video.mp4`
 
 Jobs and media persist through API restarts in local SQLite for seven days by default. Use the same browser session to reopen them; interrupted operations need an explicit retry. Before presenting, run `npm run build`, start `npm start` for a stable built UI, create a fresh session and download its outputs. Keep the video open locally as a network-failure backup. Keep `.env`, session files and API terminal details out of screen sharing.
 
-User setup remaining: GitHub OAuth (only needed for connected/private access), review account quotas and prepare the pitch. See [todo.md](../todo.md). Public profile discovery and public repository entry do not require OAuth.
+Hosted GitHub OAuth credentials are configured; account consent and connected/private discovery must be checked in the user's browser. Review provider quotas and rehearse the timed final pitch. See [todo.md](../todo.md). Public profile discovery and public repository entry do not require OAuth.
 
 ## Product boundaries and next release
 
-The default release runs locally with server `.env` credentials. A [restricted Render demo](hosting.md) has HTTPS access protection, Secure session cookies and persistent SQLite. Public hosted credential entry still needs per-user authentication, encrypted keys, read-only repository permissions and isolated media workers. No user-project deployments, automatic repository edits or social publication are performed.
+The default release runs locally with server `.env` credentials. The [live Render demo](hosting.md) allows visitors to try public repos using the owner's configured providers, with Secure session cookies and persistent SQLite. Hosted entry of visitors' provider keys still needs authentication, encrypted keys, read-only repository permissions and isolated media workers. No user-project deployments, automatic repository edits or social publication are performed.
 
 A useful post-event direction is release-to-launch: reuse a confirmed audience and tone, compare releases, draft what changed, and measure whether developers actually share the resulting pack. Viral reach and hackathon prizes are not guaranteed outcomes.
 
