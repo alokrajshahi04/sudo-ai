@@ -4,7 +4,12 @@ import { GitHubConnections } from "../server/auth";
 import { validateAnalysis, reviewReadiness } from "../server/analysis";
 import { inspect } from "../server/github";
 import { redact } from "../server/errors";
-import { makeStoryboard, sceneSvg, renderPromo } from "../server/promo";
+import {
+  makeStoryboard,
+  sceneSvg,
+  portraitSceneSvg,
+  renderPromo,
+} from "../server/promo";
 import { projectFiles } from "./fixtures/projects";
 import type { Job } from "../shared/types";
 import { spawnSync } from "node:child_process";
@@ -245,6 +250,16 @@ test("source storyboard escapes hostile markup and renders a real MP4 + poster",
   );
   assert.ok(!sceneSvg(board, 2, "<script>evil</script>").includes("<script>"));
   assert.ok(sceneSvg(board, 2, "fixture").includes("NOT A RUNTIME CAPTURE"));
+  for (const svg of [
+    sceneSvg(board, 2, "fixture"),
+    portraitSceneSvg(board, 2, "fixture"),
+  ]) {
+    assert.ok(
+      !svg.includes("https://bad.test"),
+      "Raw source must not appear in either video format",
+    );
+    assert.match(svg, /PRODUCT EXPLAINER/);
+  }
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) {
     t.skip("FFmpeg unavailable");
     return;

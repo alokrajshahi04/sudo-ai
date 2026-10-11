@@ -191,7 +191,17 @@ async function mockApi(
         );
         job.launchBrief = body.launchBrief;
         job.modelPreference = body.model ?? "google";
-        if(body.demoUrl)job.site={url:body.demoUrl,finalUrl:body.demoUrl,httpStatus:200,reachable:true,title:"Fixture",checkedAt:new Date().toISOString(),builtRevision:null,interaction:"not_checked"};
+        if (body.demoUrl)
+          job.site = {
+            url: body.demoUrl,
+            finalUrl: body.demoUrl,
+            httpStatus: 200,
+            reachable: true,
+            title: "Fixture",
+            checkedAt: new Date().toISOString(),
+            builtRevision: null,
+            interaction: "not_checked",
+          };
         job.brief = body.brief || "";
         if (options.configured ?? true) {
           job.analysis = {
@@ -277,17 +287,47 @@ async function mockApi(
         workflow: "Brag-inspired",
       };
       data = job;
-    } else if(method === "POST" && path.endsWith("/readiness-review")) {
-      job.readinessReviewedAt=new Date().toISOString();data=job;
-    } else if(method === "POST" && path.endsWith("/launch-mode")) {
-      job.launchMode=route.request().postDataJSON().mode;data=job;
-    } else if(method === "POST" && path.endsWith("/verify")) {
-      const url=route.request().postDataJSON().url;
-      job.site={url,finalUrl:url,httpStatus:200,reachable:true,title:"Fixture demo",checkedAt:new Date().toISOString(),builtRevision:null,interaction:"not_checked"};data=job;
-    } else if(method === "POST" && path.endsWith("/capture")) {
-      const body=route.request().postDataJSON();
-      job.capture={url:body.url,capturedAt:new Date().toISOString(),steps:["Opened the public page"],format:body.format,coverage:"Fixture capture for UI behavior only."};
-      job.artifacts=[{type:"recording",url:"/fixture-video.webm",provenance:"UI fixture"},{type:"screenshot",url:"/fixture-image.png",provenance:"UI fixture"}];data=job;
+    } else if (method === "POST" && path.endsWith("/readiness-review")) {
+      job.readinessReviewedAt = new Date().toISOString();
+      data = job;
+    } else if (method === "POST" && path.endsWith("/launch-mode")) {
+      job.launchMode = route.request().postDataJSON().mode;
+      data = job;
+    } else if (method === "POST" && path.endsWith("/verify")) {
+      const url = route.request().postDataJSON().url;
+      job.site = {
+        url,
+        finalUrl: url,
+        httpStatus: 200,
+        reachable: true,
+        title: "Fixture demo",
+        checkedAt: new Date().toISOString(),
+        builtRevision: null,
+        interaction: "not_checked",
+      };
+      data = job;
+    } else if (method === "POST" && path.endsWith("/capture")) {
+      const body = route.request().postDataJSON();
+      job.capture = {
+        url: body.url,
+        capturedAt: new Date().toISOString(),
+        steps: ["Opened the public page"],
+        format: body.format,
+        coverage: "Fixture capture for UI behavior only.",
+      };
+      job.artifacts = [
+        {
+          type: "recording",
+          url: "/fixture-video.webm",
+          provenance: "UI fixture",
+        },
+        {
+          type: "screenshot",
+          url: "/fixture-image.png",
+          provenance: "UI fixture",
+        },
+      ];
+      data = job;
     } else if (method === "POST" && path.endsWith("/promo")) {
       job.phases.render = { state: "running" };
       data = job;
@@ -463,9 +503,7 @@ for (const name of ["community-tool", "release-cli"]) {
       await expect(
         page.getByLabel("LinkedIn post", { exact: true }),
       ).toBeVisible();
-      await expect(
-        page.getByLabel("X post", { exact: true }),
-      ).toBeVisible();
+      await expect(page.getByLabel("X post", { exact: true })).toBeVisible();
       expect(backend.calls).toContain("strategy");
       expect(
         await page.locator(".media-addon").getAttribute("open"),
@@ -739,6 +777,7 @@ test("promo storyboard gates rendering; music failure preserves the text pack", 
   await page.route("**/fixture-video.mp4", (route) => route.abort());
   await page.goto("/");
   await page.getByText("Create a launch video", { exact: true }).click();
+  await page.getByText("Review & render", { exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Render launch promo →" }),
   ).toBeDisabled();
@@ -746,6 +785,8 @@ test("promo storyboard gates rendering; music failure preserves the text pack", 
     .getByRole("button", { name: "Prepare video storyboard →" })
     .click();
   await expect(page.getByLabel("Video storyboard")).toBeVisible();
+  await page.getByText("Voice & captions", { exact: true }).click();
+  await page.getByText("Optional background music", { exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Generate music bed →" }),
   ).toBeDisabled();
@@ -759,9 +800,8 @@ test("promo storyboard gates rendering; music failure preserves the text pack", 
   await expect(page.getByRole("alert")).toContainText(
     "Music access is unavailable",
   );
-  await expect(
-    page.getByLabel("LinkedIn post", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByLabel("LinkedIn post", { exact: true })).toBeVisible();
+  await page.getByText("Review & render", { exact: true }).click();
   await page.getByRole("button", { name: "Render launch promo →" }).click();
   await expect(
     page.getByRole("link", { name: "Download video ↓" }),
@@ -802,31 +842,123 @@ test("API outage is explained in discovery and recovers without reloading or Git
   ).toBeVisible();
 });
 
-test("readiness panel is absent and web projects generate stories without a review or demo gate",async({page},testInfo)=>{
- const job=fixture("web-product","static_vite");job.launchMode="live";
- job.readiness={coverage:"Legacy source review",agentPrompt:"Legacy prompt",findings:[{id:"ai-1",origin:"ai",severity:"review",title:"Review browser credentials",detail:"Old finding",files:["src/App.tsx"],evidenceIds:["source-readme"]}]};
- const backend=await mockApi(page,{restored:job});await page.goto('/');
- await expect(page.getByRole('button',{name:'Check project readiness →'})).toHaveCount(0);
- await expect(page.getByText('Review browser credentials',{exact:true})).toHaveCount(0);
- await page.getByRole('button',{name:'Continue to launch stories →'}).click();
- await page.getByText('Research settings',{exact:false}).first().click();
- await page.getByLabel('Research related projects before writing').uncheck();
- await page.getByRole('button',{name:'Generate two launch stories →'}).click();
- await expect(page.getByRole('button',{name:/Bring community work together/})).toBeVisible();
- expect(backend.calls).toContain('position');expect(backend.calls).not.toContain('readiness-review');expect(backend.calls).not.toContain('verify');
- await page.screenshot({path:testInfo.outputPath('no-readiness-panel.png')});
+test("readiness panel is absent and web projects generate stories without a review or demo gate", async ({
+  page,
+}, testInfo) => {
+  const job = fixture("web-product", "static_vite");
+  job.launchMode = "live";
+  job.readiness = {
+    coverage: "Legacy source review",
+    agentPrompt: "Legacy prompt",
+    findings: [
+      {
+        id: "ai-1",
+        origin: "ai",
+        severity: "review",
+        title: "Review browser credentials",
+        detail: "Old finding",
+        files: ["src/App.tsx"],
+        evidenceIds: ["source-readme"],
+      },
+    ],
+  };
+  const backend = await mockApi(page, { restored: job });
+  await page.goto("/");
+  await expect(
+    page.getByRole("button", { name: "Check project readiness →" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Review browser credentials", { exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Continue to launch stories →" })
+    .click();
+  await page.getByText("Research settings", { exact: false }).first().click();
+  await page.getByLabel("Research related projects before writing").uncheck();
+  await page
+    .getByRole("button", { name: "Generate two launch stories →" })
+    .click();
+  await expect(
+    page.getByRole("button", { name: /Bring community work together/ }),
+  ).toBeVisible();
+  expect(backend.calls).toContain("position");
+  expect(backend.calls).not.toContain("readiness-review");
+  expect(backend.calls).not.toContain("verify");
+  await page.screenshot({
+    path: testInfo.outputPath("no-readiness-panel.png"),
+  });
 });
-test("deployed capture requires reviewed steps and keeps footage visible before rendering",async({page},testInfo)=>{
- const job=fixture();job.positioning=positioning();job.launchStrategy={launchType:'showcase',angleTitle:job.positioning!.angles[0].title,createdAt:new Date().toISOString(),checklist:[],channels:[]};
- const backend=await mockApi(page,{restored:job,media:true});await page.goto('/');
- await page.getByText('Create a launch video',{exact:true}).click();
- await expect(page.getByLabel('Video format',{exact:true})).toHaveValue('portrait');
- await page.getByLabel('Public demo URL',{exact:true}).fill('https://demo.example');
- await page.getByLabel('Buttons to click',{exact:false}).fill('Show demo');
- const recordButton=page.getByRole('button',{name:'Record deployed demo →'});await expect(recordButton).toBeDisabled();
- await page.getByLabel('I reviewed these steps and approve recording this public demo.').check();
- await recordButton.click();await expect(page.getByText('✓ Real footage captured',{exact:true})).toBeVisible();
- expect(backend.calls).toContain('capture');
- await expect(page.getByLabel('Use my recording in the middle scene')).toBeChecked();
- await page.screenshot({path:testInfo.outputPath('capture-flow.png')});
+test("deployed capture requires reviewed steps and keeps footage visible before rendering", async ({
+  page,
+}, testInfo) => {
+  const job = fixture();
+  job.positioning = positioning();
+  job.launchStrategy = {
+    launchType: "showcase",
+    angleTitle: job.positioning!.angles[0].title,
+    createdAt: new Date().toISOString(),
+    checklist: [],
+    channels: [],
+  };
+  const backend = await mockApi(page, { restored: job, media: true });
+  await page.goto("/");
+  await page.getByText("Create a launch video", { exact: true }).click();
+  await page.getByText("Review & render", { exact: true }).click();
+  await expect(page.getByLabel("Video format", { exact: true })).toHaveValue(
+    "portrait",
+  );
+  await page.getByText("Product visuals", { exact: true }).click();
+  await page.getByText("Record from a deployed URL", { exact: true }).click();
+  await page
+    .getByLabel("Public demo URL", { exact: true })
+    .fill("https://demo.example");
+  await page.getByLabel("Buttons to click", { exact: false }).fill("Show demo");
+  const recordButton = page.getByRole("button", {
+    name: "Record deployed demo →",
+  });
+  await expect(recordButton).toBeDisabled();
+  await page
+    .getByLabel(
+      "I reviewed these steps and approve recording this public demo.",
+    )
+    .check();
+  await recordButton.click();
+  await expect(
+    page.getByText("✓ Real footage captured", { exact: true }),
+  ).toBeVisible();
+  expect(backend.calls).toContain("capture");
+  await expect(
+    page.getByLabel("Use my recording in the middle scene"),
+  ).toBeChecked();
+  await page.screenshot({ path: testInfo.outputPath("capture-flow.png") });
+});
+
+test("repository demo offers consented automatic recording without exact-step setup", async ({
+  page,
+}) => {
+  const job = fixture();
+  job.inspection!.homepage = "https://demo.example/";
+  job.positioning = positioning();
+  const backend = await mockApi(page, { restored: job, media: true });
+  await page.goto("/");
+  await page.getByRole("button", {name: "3 Launch pack"}).click();
+  await page.getByText("Create a launch video", { exact: true }).click();
+  const button = page.getByRole("button", {
+    name: "Auto-record product demo →",
+  });
+  await expect(button).toBeDisabled();
+  await page
+    .getByLabel(
+      "I approve public browser recording and model usage for the capture plan.",
+    )
+    .check();
+  await expect(button).toBeEnabled();
+  await button.click();
+  await expect(
+    page.getByText("✓ Real footage captured", { exact: true }),
+  ).toBeVisible();
+  expect(backend.calls).toContain("capture");
+  await expect(
+    page.getByLabel("Buttons to click", { exact: false }),
+  ).not.toBeVisible();
 });

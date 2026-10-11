@@ -116,7 +116,12 @@ export default function LiveWorkspace({
   useEffect(() => {
     setNarration(job.narrationScript || savedCopy.narration || "");
     setApproved(false);
-  }, [job.positioning?.generatedAt, job.selectedAngle, job.narrationScript, currentDrafts(job)?.updatedAt]);
+  }, [
+    job.positioning?.generatedAt,
+    job.selectedAngle,
+    job.narrationScript,
+    currentDrafts(job)?.updatedAt,
+  ]);
   useEffect(() => {
     if (job.inspection?.homepage && !site) setSite(job.inspection.homepage);
   }, [job.inspection]);
@@ -176,17 +181,37 @@ export default function LiveWorkspace({
     setError("");
     try {
       const calendarDate = scheduleTime ? new Date(scheduleTime) : null;
-      if (calendarDate && (!Number.isFinite(calendarDate.getTime()) || calendarDate.getTime() <= Date.now()))
-        throw new Error("Choose a future launch reminder time, or clear it before downloading.");
-      const calendarQuery = calendarDate ? `?start=${encodeURIComponent(calendarDate.toISOString())}` : "";
-      const response = await fetch(`/api/jobs/${job.id}/pack.zip${calendarQuery}`, { credentials: "same-origin", signal: AbortSignal.timeout(60000) });
-      if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || "Launch ZIP could not be created."); }
+      if (
+        calendarDate &&
+        (!Number.isFinite(calendarDate.getTime()) ||
+          calendarDate.getTime() <= Date.now())
+      )
+        throw new Error(
+          "Choose a future launch reminder time, or clear it before downloading.",
+        );
+      const calendarQuery = calendarDate
+        ? `?start=${encodeURIComponent(calendarDate.toISOString())}`
+        : "";
+      const response = await fetch(
+        `/api/jobs/${job.id}/pack.zip${calendarQuery}`,
+        { credentials: "same-origin", signal: AbortSignal.timeout(60000) },
+      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Launch ZIP could not be created.");
+      }
       const url = URL.createObjectURL(await response.blob());
-      const link = document.createElement("a"); link.href = url; link.download = `${job.name.replace(/[^a-z0-9-]/gi,"-")}-launch-kit.zip`; link.click();
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${job.name.replace(/[^a-z0-9-]/gi, "-")}-launch-kit.zip`;
+      link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       onNotice("Complete launch kit downloaded. Review it before publishing.");
-    } catch (e) { setError(e instanceof Error ? e.message : "ZIP download failed."); }
-    finally { setPending(false); }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "ZIP download failed.");
+    } finally {
+      setPending(false);
+    }
   }
   async function act(path: string, body: unknown) {
     setPending(true);
@@ -344,12 +369,18 @@ export default function LiveWorkspace({
   const screenshot = job.artifacts.find((a) => a.type === "screenshot");
   const captionAsset = job.artifacts.find((a) => a.type === "captions");
   useEffect(() => {
-    if (previousRender.current === "running" && job.phases.render.state === "completed" && videoRef.current) {
+    if (
+      previousRender.current === "running" &&
+      job.phases.render.state === "completed" &&
+      videoRef.current
+    ) {
       videoRef.current.load();
       if (mediaRef.current) mediaRef.current.open = true;
       videoRef.current.scrollIntoView({ block: "center" });
       videoRef.current.focus({ preventScroll: true });
-      onNotice("Your launch video is ready. Preview it, then download your assets.");
+      onNotice(
+        "Your launch video is ready. Preview it, then download your assets.",
+      );
     }
     previousRender.current = job.phases.render.state;
   }, [job.phases.render.state]);
@@ -420,7 +451,8 @@ export default function LiveWorkspace({
               </p>
             </header>
             <p className="footnote launch-note">
-              Review your launch claims before publishing. Reading source does not verify every feature.
+              Review your launch claims before publishing. Reading source does
+              not verify every feature.
             </p>
             <div className="brief-layout">
               <form
@@ -945,52 +977,47 @@ export default function LiveWorkspace({
                     Change story →
                   </button>
                 </div>
-                <DraftEditor job={job} busy={running} onJob={onJob} onNotice={onNotice} onDirtyChange={setDraftDirty}/>
-                {draftDirty && <p className="footnote" role="status">Save or discard your edits to update downloads, Instagram slides and reminders.</p>}
-                <button className="text-button" disabled={running || draftDirty} onClick={downloadKit}>Download text draft ↓</button>
-                <InstagramPack job={job} busy={running || draftDirty} available={capabilities?.carousel ?? !!capabilities?.promo} onGenerate={() => void act("carousel", {})}/>
-                <section className="sharing-plan">
-                  <div className="section-heading">
-                    <h3>Your launch plan</h3>
-                    {!job.launchStrategy && (
-                      <button
-                        className="outline compact-action"
-                        disabled={running}
-                        onClick={() => void act("strategy", {})}
-                      >
-                        Prepare launch plan →
-                      </button>
-                    )}
+                <DraftEditor
+                  job={job}
+                  busy={running}
+                  onJob={onJob}
+                  onNotice={onNotice}
+                  onDirtyChange={setDraftDirty}
+                />
+                {draftDirty && (
+                  <p className="footnote" role="status">
+                    Save or discard your edits to update downloads, Instagram
+                    slides and reminders.
+                  </p>
+                )}
+                <button
+                  className="text-button"
+                  disabled={running || draftDirty}
+                  onClick={downloadKit}
+                >
+                  Download text draft ↓
+                </button>
+                <details className="pack-section" aria-label="Carousel section">
+                  <summary>
+                    <span>
+                      <strong>Instagram carousel</strong>
+                      <small>Five slides from your launch story</small>
+                    </span>
+                    <span className="section-status">
+                      {job.carousel ? "Slides prepared" : "Optional"}
+                    </span>
+                  </summary>
+                  <div className="pack-section-body">
+                    <InstagramPack
+                      job={job}
+                      busy={running || draftDirty}
+                      available={
+                        capabilities?.carousel ?? !!capabilities?.promo
+                      }
+                      onGenerate={() => void act("carousel", {})}
+                    />
                   </div>
-                  {job.launchStrategy ? (
-                    <>
-                      <div className="channel-grid">
-                        {job.launchStrategy.channels.map((c) => (
-                          <article key={c.name}>
-                            <span className="micro">{c.name}</span>
-                            <p>{c.purpose}</p>
-                            <span className="footnote">{c.timing}</span>
-                          </article>
-                        ))}
-                      </div>
-                      <details className="launch-checklist-disclosure">
-                        <summary>
-                          Before you share ·{" "}
-                          {job.launchStrategy.checklist.length} checklist items
-                        </summary>
-                        <ol className="launch-checklist">
-                          {job.launchStrategy.checklist.map((item) => (
-                            <li key={item}>{item}</li>
-                          ))}
-                        </ol>
-                      </details>
-                    </>
-                  ) : (
-                    <p className="footnote">
-                      Prepare the sharing checklist for your selected story.
-                    </p>
-                  )}
-                </section>
+                </details>
               </>
             ) : (
               <div className="setup-needed">
@@ -1004,190 +1031,67 @@ export default function LiveWorkspace({
                 </button>
               </div>
             )}
-            {chosen && (
-              <section className="launch-calendar">
-                <h3>Plan your launch week.</h3>
-                <p>
-                  Set reminders for LinkedIn, X, Instagram and a feedback
-                  follow-up. Import the calendar into Google Calendar, Apple
-                  Calendar or Outlook, then review and publish each post
-                  yourself.
-                </p>
-                <label htmlFor="schedule-time">
-                  First post time · your local timezone
-                </label>
-                <input
-                  id="schedule-time"
-                  type="datetime-local"
-                  value={scheduleTime}
-                  onChange={(e) => setScheduleTime(e.target.value)}
-                />
-                <button
-                  className="outline"
-                  disabled={!scheduleTime || draftDirty || running}
-                  onClick={() => {
-                    const date = new Date(scheduleTime);
-                    if (
-                      !Number.isFinite(date.getTime()) ||
-                      date.getTime() <= Date.now()
-                    ) {
-                      setError("Choose a future post time.");
-                      return;
-                    }
-                    const link = document.createElement("a");
-                    link.href = `/api/jobs/${job.id}/calendar?start=${encodeURIComponent(date.toISOString())}`;
-                    link.download = "sudo-launch-calendar.ics";
-                    link.click();
-                  }}
-                >
-                  Download launch calendar →
-                </button>
-                <p className="footnote">
-                  Calendar reminders are scheduled. Social posts are not
-                  published automatically.
-                </p>
-              </section>
-            )}
-            <details className="media-addon" ref={mediaRef}>
+
+            <details className="media-addon pack-section" ref={mediaRef}>
               <summary>
-                <div>
-                  <span className="micro">OPTIONAL</span>
+                <span>
                   <strong>Create a launch video</strong>
-                </div>
-                <span className="footnote">
-                  {video ? "Video prepared" : "Source visuals or your footage"}{" "}
-                  +
+                  <small>Real visuals, ElevenLabs voice and captions</small>
+                </span>
+                <span className="section-status">
+                  {video ? "Video ready" : "Optional"}
                 </span>
               </summary>
               <div className="media-addon-body">
-                {" "}
-                <span className="micro">04 / DEMO STUDIO</span>
-                <h2>Make the value easy to see.</h2>
                 <p className="section-intro">
-                  A 25-second Brag-inspired promo: hook, reveal, source or
-                  footage, and a clear next step. Review the storyboard first.
-                  Capture a public demo with approved steps or add your own visuals.
+                  Build a 25-second reel. Add visuals, review the voiceover,
+                  then render.
                 </p>
-                <label htmlFor="video-format">Video format</label>
-                <select
-                  id="video-format"
-                  value={videoFormat}
-                  disabled={running}
-                  onChange={(e) =>
-                    setVideoFormat(e.target.value as "landscape" | "portrait")
-                  }
-                >
-                  <option value="portrait">
-                    Portrait · 1080×1920 · Reels / Shorts
-                  </option>
-                  <option value="landscape">
-                    Landscape · 1280×720 · LinkedIn / X
-                  </option>
-                </select>
-                <CaptureControls
-                  job={job}
-                  busy={running}
-                  available={!!capabilities?.promo}
-                  recorderAvailable={!!capabilities?.capture}
-                  format={videoFormat}
-                  onCapture={(body) => void act("capture", body)}
-                  onScreenshot={(file) => void upload(file, "screenshot")}
-                />
-                {!job.storyboard ? (
-                  <button
-                    className="outline"
-                    disabled={running || !chosen}
-                    onClick={() => void act("storyboard", {visual:useRecording && recording ? "recording" : useScreenshot && screenshot ? "screenshot" : "source"})}
-                  >
-                    Prepare video storyboard →
-                  </button>
-                ) : (
-                  <>
-                    <div
-                      className="storyboard-grid"
-                      aria-label="Video storyboard"
+                {video && (
+                  <div className="finished-video">
+                    <video
+                      ref={videoRef}
+                      aria-label="Rendered launch video"
+                      tabIndex={0}
+                      className="video-preview"
+                      src={video.url}
+                      poster={
+                        job.artifacts.find((a) => a.type === "poster")?.url
+                      }
+                      controls
+                      preload="metadata"
+                    />
+                    <a
+                      className="outline compact-action"
+                      href={video.url}
+                      download
                     >
-                      {job.storyboard.scenes.map((scene, i) => (
-                        <article className="storyboard-scene" key={scene.label}>
-                          <span className="micro">
-                            0{i + 1} / {scene.seconds}s
-                          </span>
-                          <h4>{scene.heading}</h4>
-                          <p>{scene.detail}</p>
-                        </article>
-                      ))}
-                    </div>
-                    <div className="studio-controls">
-                      <button className="outline" disabled={running} onClick={()=>void act("storyboard",{visual:useRecording && recording ? "recording" : useScreenshot && screenshot ? "screenshot" : "source"})}>Refresh storyboard →</button>
-                      <button
-                        className="text-button"
-                        onClick={() => {
-                          const link = document.createElement("a");
-                          const url = URL.createObjectURL(
-                            new Blob(
-                              [JSON.stringify(job.storyboard, null, 2)],
-                              { type: "application/json" },
-                            ),
-                          );
-                          link.href = url;
-                          link.download = "sudo-storyboard.json";
-                          link.click();
-                          setTimeout(() => URL.revokeObjectURL(url), 1000);
-                        }}
-                      >
-                        Download storyboard ↓
-                      </button>
-                      <a href={`/api/jobs/${job.id}/brag`} download>
-                        Export to Brag ↗
-                      </a>
-                    </div>
-                    <p className="footnote">
-                      Our renderer adapts{" "}
-                      <a
-                        href="https://github.com/latent-spaces/brag"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Brag’s workflow
-                      </a>{" "}
-                      with Chromium + FFmpeg. The export is for the upstream
-                      skill and Hyperframes; those do not run here.
-                    </p>
-                  </>
+                      Download video ↓
+                    </a>
+                  </div>
                 )}
-                <div className="studio-media-layout">
-                  <div className="studio-visuals">
-                    {video ? (
-                      <video
-                        ref={videoRef}
-                        aria-label="Rendered launch video"
-                        tabIndex={0}
-                        className="video-preview"
-                        src={video.url}
-                        poster={job.artifacts.find(a => a.type === "poster")?.url}
-                        controls
-                        preload="metadata"
-                      />
-                    ) : (
-                      <div className="video-placeholder">
-                        <span className="play-outline">▷</span>
-                        <span>
-                          {recording
-                            ? "Recording ready to render"
-                            : "Ready for source visuals; footage is optional"}
-                        </span>
-                        <span className="footnote">
-                          MP4 / WebM · 3–120 seconds · up to 30 MB
-                        </span>
-                      </div>
-                    )}
-                    {!capabilities?.render && (
-                      <p className="setup-needed">
-                        Video rendering is unavailable in this local setup.
-                        Install FFmpeg and restart the server to enable it. Your
-                        text launch pack is ready to use separately.
-                      </p>
-                    )}
+                <details
+                  className="video-step"
+                  name={`video-workflow-${job.id}`}
+                  open
+                >
+                  <summary>
+                    <span className="step-number">1</span>
+                    <span>
+                      <strong>Product visuals</strong>
+                      <small>Upload footage or record a public demo</small>
+                    </span>
+                  </summary>
+                  <div className="video-step-body">
+                    <CaptureControls
+                      job={job}
+                      busy={running}
+                      available={!!capabilities?.promo}
+                      recorderAvailable={!!capabilities?.capture}
+                      format={videoFormat}
+                      onCapture={(body) => void act("capture", body)}
+                      onScreenshot={(file) => void upload(file, "screenshot")}
+                    />
                     <label className="upload-control">
                       Upload recording
                       <input
@@ -1201,8 +1105,27 @@ export default function LiveWorkspace({
                         }}
                       />
                     </label>
+                    <p className="footnote">
+                      No footage? Create a branded product explainer instead of
+                      a code scene. MP4/WebM uploads: 3–120 seconds, up to 30
+                      MB.
+                    </p>
                   </div>
-                  <div className="studio-audio">
+                </details>
+                <details
+                  className="video-step"
+                  name={`video-workflow-${job.id}`}
+                >
+                  <summary>
+                    <span className="step-number">2</span>
+                    <span>
+                      <strong>Voice & captions</strong>
+                      <small>
+                        Review the script before using ElevenLabs quota
+                      </small>
+                    </span>
+                  </summary>
+                  <div className="video-step-body">
                     <form
                       className="inline-form"
                       onSubmit={(e) => {
@@ -1250,168 +1173,402 @@ export default function LiveWorkspace({
                       </button>
                     </form>
                     {audio && <audio src={audio.url} controls />}
-                    <div className="music-controls">
-                      <label htmlFor="music-prompt">
-                        Optional instrumental music
-                      </label>
-                      <textarea
-                        id="music-prompt"
-                        value={musicPrompt}
-                        maxLength={500}
-                        onChange={(e) => {
-                          setMusicPrompt(e.target.value);
-                          setMusicApproved(false);
-                        }}
-                      />
-                      <label className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={musicApproved}
-                          onChange={(e) => setMusicApproved(e.target.checked)}
+
+                    <details className="video-advanced">
+                      <summary>Optional background music</summary>
+                      <div className="music-controls">
+                        <label htmlFor="music-prompt">
+                          Optional instrumental music
+                        </label>
+                        <textarea
+                          id="music-prompt"
+                          value={musicPrompt}
+                          maxLength={500}
+                          onChange={(e) => {
+                            setMusicPrompt(e.target.value);
+                            setMusicApproved(false);
+                          }}
                         />
-                        I approve sending this prompt to ElevenLabs and using my
-                        music quota.
-                      </label>
+                        <label className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={musicApproved}
+                            onChange={(e) => setMusicApproved(e.target.checked)}
+                          />
+                          I approve sending this prompt to ElevenLabs and using
+                          my music quota.
+                        </label>
+                        <button
+                          className="outline"
+                          disabled={
+                            running ||
+                            !musicApproved ||
+                            !chosen ||
+                            !capabilities?.music
+                          }
+                          onClick={() =>
+                            void act("music", {
+                              prompt: musicPrompt,
+                              approved: true,
+                            })
+                          }
+                        >
+                          Generate music bed →
+                        </button>
+                        {music && <audio src={music.url} controls />}
+                      </div>
+                    </details>
+                    {!capabilities?.narration && (
+                      <p className="footnote">
+                        Configure an ElevenLabs key and voice in Settings to
+                        enable narration.
+                      </p>
+                    )}
+                  </div>
+                </details>
+                <details
+                  className="video-step"
+                  name={`video-workflow-${job.id}`}
+                >
+                  <summary>
+                    <span className="step-number">3</span>
+                    <span>
+                      <strong>Review & render</strong>
+                      <small>Check the storyboard and export your reel</small>
+                    </span>
+                  </summary>
+                  <div className="video-step-body">
+                    <label htmlFor="video-format">Video format</label>
+                    <select
+                      id="video-format"
+                      value={videoFormat}
+                      disabled={running}
+                      onChange={(e) =>
+                        setVideoFormat(
+                          e.target.value as "landscape" | "portrait",
+                        )
+                      }
+                    >
+                      <option value="portrait">
+                        Portrait · 1080×1920 · Reels / Shorts
+                      </option>
+                      <option value="landscape">
+                        Landscape · 1280×720 · LinkedIn / X
+                      </option>
+                    </select>
+                    {!job.storyboard ? (
                       <button
                         className="outline"
-                        disabled={
-                          running ||
-                          !musicApproved ||
-                          !chosen ||
-                          !capabilities?.music
-                        }
+                        disabled={running || !chosen}
                         onClick={() =>
-                          void act("music", {
-                            prompt: musicPrompt,
-                            approved: true,
+                          void act("storyboard", {
+                            visual:
+                              useRecording && recording
+                                ? "recording"
+                                : useScreenshot && screenshot
+                                  ? "screenshot"
+                                  : "source",
                           })
                         }
                       >
-                        Generate music bed →
+                        Prepare video storyboard →
                       </button>
-                      {music && <audio src={music.url} controls />}
+                    ) : (
+                      <>
+                        <div
+                          className="storyboard-grid"
+                          aria-label="Video storyboard"
+                        >
+                          {job.storyboard.scenes.map((scene, i) => (
+                            <article
+                              className="storyboard-scene"
+                              key={scene.label}
+                            >
+                              <span className="micro">
+                                0{i + 1} / {scene.seconds}s
+                              </span>
+                              <h4>{scene.heading}</h4>
+                              <p>{scene.detail}</p>
+                            </article>
+                          ))}
+                        </div>
+                        <div className="studio-controls">
+                          <button
+                            className="outline"
+                            disabled={running}
+                            onClick={() =>
+                              void act("storyboard", {
+                                visual:
+                                  useRecording && recording
+                                    ? "recording"
+                                    : useScreenshot && screenshot
+                                      ? "screenshot"
+                                      : "source",
+                              })
+                            }
+                          >
+                            Refresh storyboard →
+                          </button>
+                        </div>
+                        <details className="video-advanced">
+                          <summary>Storyboard exports</summary>
+                          <div className="studio-controls">
+                            {" "}
+                            <button
+                              className="text-button"
+                              onClick={() => {
+                                const link = document.createElement("a");
+                                const url = URL.createObjectURL(
+                                  new Blob(
+                                    [JSON.stringify(job.storyboard, null, 2)],
+                                    { type: "application/json" },
+                                  ),
+                                );
+                                link.href = url;
+                                link.download = "sudo-storyboard.json";
+                                link.click();
+                                setTimeout(
+                                  () => URL.revokeObjectURL(url),
+                                  1000,
+                                );
+                              }}
+                            >
+                              Download storyboard ↓
+                            </button>
+                            <a href={`/api/jobs/${job.id}/brag`} download>
+                              Export to Brag ↗
+                            </a>
+                          </div>
+                        </details>
+                      </>
+                    )}
+
+                    <details className="video-advanced">
+                      <summary>Audio, visuals & caption options</summary>
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={useVoice}
+                          onChange={(e) => setUseVoice(e.target.checked)}
+                          disabled={!audio}
+                        />
+                        Include generated narration
+                      </label>
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={useMusic}
+                          onChange={(e) => setUseMusic(e.target.checked)}
+                          disabled={!music}
+                        />
+                        Include generated music
+                      </label>
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={useRecording}
+                          onChange={(e) => setUseRecording(e.target.checked)}
+                          disabled={!recording}
+                        />
+                        Use my recording in the middle scene
+                      </label>
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={useScreenshot}
+                          disabled={!screenshot || useRecording}
+                          onChange={(e) => setUseScreenshot(e.target.checked)}
+                        />
+                        Use my screenshot in the middle scene
+                      </label>
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={useCaptions}
+                          disabled={!captionAsset || !useVoice}
+                          onChange={(e) => setUseCaptions(e.target.checked)}
+                        />
+                        Burn captions aligned to my narration
+                      </label>
+                    </details>
+                    <div className="studio-controls">
+                      <button
+                        className="primary"
+                        disabled={
+                          running ||
+                          draftDirty ||
+                          !job.storyboard ||
+                          !capabilities?.promo
+                        }
+                        onClick={() =>
+                          void act("promo", {
+                            useNarration: useVoice && !!audio,
+                            useMusic: useMusic && !!music,
+                            useRecording: useRecording && !!recording,
+                            useScreenshot:
+                              useScreenshot && !!screenshot && !useRecording,
+                            useCaptions:
+                              useCaptions && !!captionAsset && useVoice,
+                            format: videoFormat,
+                          })
+                        }
+                      >
+                        Render launch promo →
+                      </button>
                     </div>
+
+                    {recording && (
+                      <details className="video-advanced">
+                        <summary>Export footage without the storyboard</summary>
+                        {recording && (
+                          <button
+                            className="outline"
+                            disabled={running || !capabilities?.render}
+                            onClick={() =>
+                              void act("render", {
+                                useNarration: useVoice && !!audio,
+                              })
+                            }
+                          >
+                            Render recording only →
+                          </button>
+                        )}
+                      </details>
+                    )}
+                    <p className="footnote">
+                      25 seconds ·{" "}
+                      {videoFormat === "portrait" ? "1080×1920" : "1280×720"}{" "}
+                      MP4. Review the final claims and captions before sharing.
+                    </p>
+                    {!capabilities?.promo && (
+                      <p className="footnote">
+                        Video composition requires FFmpeg and Chromium in your
+                        local setup.
+                      </p>
+                    )}
                   </div>
-                </div>
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={useVoice}
-                    onChange={(e) => setUseVoice(e.target.checked)}
-                    disabled={!audio}
-                  />
-                  Include generated narration
-                </label>
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={useMusic}
-                    onChange={(e) => setUseMusic(e.target.checked)}
-                    disabled={!music}
-                  />
-                  Include generated music
-                </label>
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={useRecording}
-                    onChange={(e) => setUseRecording(e.target.checked)}
-                    disabled={!recording}
-                  />
-                  Use my recording in the middle scene
-                </label>
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={useScreenshot}
-                    disabled={!screenshot || useRecording}
-                    onChange={(e) => setUseScreenshot(e.target.checked)}
-                  />
-                  Use my screenshot in the middle scene
-                </label>
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={useCaptions}
-                    disabled={!captionAsset || !useVoice}
-                    onChange={(e) => setUseCaptions(e.target.checked)}
-                  />
-                  Burn captions aligned to my narration
-                </label>
-                <div className="studio-controls">
-                  <button
-                    className="primary"
-                    disabled={
-                      running || draftDirty || !job.storyboard || !capabilities?.promo
-                    }
-                    onClick={() =>
-                      void act("promo", {
-                        useNarration: useVoice && !!audio,
-                        useMusic: useMusic && !!music,
-                        useRecording: useRecording && !!recording,
-                        useScreenshot:
-                          useScreenshot && !!screenshot && !useRecording,
-                        useCaptions: useCaptions && !!captionAsset && useVoice,
-                        format: videoFormat,
-                      })
-                    }
-                  >
-                    Render launch promo →
-                  </button>
-                  {recording && (
-                    <button
-                      className="outline"
-                      disabled={running || !capabilities?.render}
-                      onClick={() =>
-                        void act("render", {
-                          useNarration: useVoice && !!audio,
-                        })
-                      }
-                    >
-                      Render recording only →
-                    </button>
-                  )}
-                </div>
-                <p className="footnote">
-                  25 seconds ·{" "}
-                  {videoFormat === "portrait" ? "1080×1920" : "1280×720"} MP4 +
-                  poster. Real source cards are used when no recording is
-                  selected. Source visuals are not evidence of working
-                  interactions.
-                </p>
-                {!capabilities?.promo && (
-                  <p className="footnote">
-                    Promo rendering needs FFmpeg and Chromium. Run npm run
-                    setup:browser, or set PLAYWRIGHT_CHROMIUM_PATH, and restart.
-                  </p>
-                )}
-                {!capabilities?.narration && (
-                  <p className="footnote">
-                    ElevenLabs needs a local API key and voice ID.
-                  </p>
-                )}
+                </details>
               </div>
             </details>
-            {!!job.artifacts.length && (
-              <div className="artifact-list">
-                {job.artifacts.map((a) => (
-                  <div key={a.type}>
-                    <a href={a.url} download>
-                      {"Download " + a.type} ↓
-                    </a>
-                    <span className="footnote">{a.provenance}</span>
-                  </div>
-                ))}
-              </div>
+            {chosen && (
+              <details className="pack-section planning-section">
+                <summary>
+                  <span>
+                    <strong>Launch plan & reminders</strong>
+                    <small>Optional checklist and calendar export</small>
+                  </span>
+                </summary>
+                <div className="pack-section-body">
+                  <section className="sharing-plan">
+                    <div className="section-heading">
+                      <h3>Your launch plan</h3>
+                      {!job.launchStrategy && (
+                        <button
+                          className="outline compact-action"
+                          disabled={running}
+                          onClick={() => void act("strategy", {})}
+                        >
+                          Prepare launch plan →
+                        </button>
+                      )}
+                    </div>
+                    {job.launchStrategy ? (
+                      <>
+                        <div className="channel-grid">
+                          {job.launchStrategy.channels.map((c) => (
+                            <article key={c.name}>
+                              <span className="micro">{c.name}</span>
+                              <p>{c.purpose}</p>
+                              <span className="footnote">{c.timing}</span>
+                            </article>
+                          ))}
+                        </div>
+                        <details className="launch-checklist-disclosure">
+                          <summary>
+                            Before you share ·{" "}
+                            {job.launchStrategy.checklist.length} checklist
+                            items
+                          </summary>
+                          <ol className="launch-checklist">
+                            {job.launchStrategy.checklist.map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ol>
+                        </details>
+                      </>
+                    ) : (
+                      <p className="footnote">
+                        Prepare the sharing checklist for your selected story.
+                      </p>
+                    )}
+                  </section>{" "}
+                  {chosen && (
+                    <section className="launch-calendar">
+                      <h3>Plan your launch week.</h3>
+                      <p>
+                        Set reminders for LinkedIn, X, Instagram and a feedback
+                        follow-up. Import the calendar into Google Calendar,
+                        Apple Calendar or Outlook, then review and publish each
+                        post yourself.
+                      </p>
+                      <label htmlFor="schedule-time">
+                        First post time · your local timezone
+                      </label>
+                      <input
+                        id="schedule-time"
+                        type="datetime-local"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                      />
+                      <button
+                        className="outline"
+                        disabled={!scheduleTime || draftDirty || running}
+                        onClick={() => {
+                          const date = new Date(scheduleTime);
+                          if (
+                            !Number.isFinite(date.getTime()) ||
+                            date.getTime() <= Date.now()
+                          ) {
+                            setError("Choose a future post time.");
+                            return;
+                          }
+                          const link = document.createElement("a");
+                          link.href = `/api/jobs/${job.id}/calendar?start=${encodeURIComponent(date.toISOString())}`;
+                          link.download = "sudo-launch-calendar.ics";
+                          link.click();
+                        }}
+                      >
+                        Download launch calendar →
+                      </button>
+                      <p className="footnote">
+                        Calendar reminders are scheduled. Social posts are not
+                        published automatically.
+                      </p>
+                    </section>
+                  )}
+                </div>
+              </details>
             )}
             <details className="source-disclosure">
               <summary>
-                Evidence receipt & sources{" "}
+                Individual downloads & sources{" "}
                 <span className="footnote">
                   Inspect what informed this pack
                 </span>
               </summary>
               <div className="source-disclosure-body">
+                {!!job.artifacts.length && (
+                  <div className="artifact-list">
+                    {job.artifacts.map((a) => (
+                      <div key={a.type}>
+                        <a href={a.url} download>
+                          {"Download " + a.type} ↓
+                        </a>
+                        <span className="footnote">{a.provenance}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <a
                   className="outline compact-action"
                   href={"/api/jobs/" + job.id + "/receipt"}
@@ -1442,7 +1599,7 @@ export default function LiveWorkspace({
           </>
         )}
         <details className="context-panel">
-          <summary>Run details · source, model & local storage</summary>
+          <summary>Run details · source, model & saved memory</summary>
           <div className="context-details">
             <div className="context-item">
               <span>Repository</span>
@@ -1451,7 +1608,7 @@ export default function LiveWorkspace({
             <div className="context-item">
               <span>Mode</span>
               <strong>
-                Local backend ·{" "}
+                {capabilities?.mode === "hosted-demo" ? "Hosted demo" : "Local backend"} ·{" "}
                 {job.inspection?.private ? "private source" : "public source"}
               </strong>
             </div>
@@ -1472,7 +1629,11 @@ export default function LiveWorkspace({
             <div className="context-item">
               <span>Job expiry</span>
               <strong>{new Date(job.expiresAt).toLocaleString()}</strong>
-              <small>{capabilities?.storage ? `Saved locally in SQLite · ${capabilities.storage.retentionDays}-day retention` : "Local job storage"}</small>
+              <small>
+                {capabilities?.storage
+                  ? `Saved in SQLite · ${capabilities.storage.retentionDays}-day retention`
+                  : "Local job storage"}
+              </small>
             </div>
             <button className="outline" onClick={onSettings}>
               Configure preferences ↗

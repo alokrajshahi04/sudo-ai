@@ -104,7 +104,10 @@ function validationDetail(error: unknown) {
     error.message === "Analysis supplied an unsupported source quotation."
   )
     return "evidenceQuote must be a verbatim substring of a supplied excerpt cited by that finding; omit unsupported findings.";
-  if (error instanceof AppError && error.message === "Draft supplied an unsupported or incomplete GitHub URL.")
+  if (
+    error instanceof AppError &&
+    error.message === "Draft supplied an unsupported or incomplete GitHub URL."
+  )
     return "Draft links must use an exact, complete supplied GitHub URL. Never truncate a URL to fit a character limit; shorten the surrounding copy or omit the link.";
   if (error instanceof AppError)
     return "Cited an unknown evidence ID; use only the supplied IDs.";
@@ -140,27 +143,48 @@ Hard schema limits: exactly 2 angles. Each has title 1–120 characters, audienc
 Output schema: {"angles":[{"title":"...","audience":"...","rationale":"...","evidenceIds":["source-1"],"linkedin":"draft specific to this angle","x":"draft specific to this angle, max 280 characters","narration":"40–50 words specific to this angle"},{"title":"...","audience":"...","rationale":"...","evidenceIds":["source-1"],"linkedin":"...","x":"...","narration":"..."}],"limitations":["..."]}. No other fields.`;
 function normalizeGitHubUrl(value: string): string | null {
   try {
-    const url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
-    if (!["github.com", "www.github.com"].includes(url.hostname.toLowerCase()) || url.username || url.password) return null;
+    const url = new URL(
+      /^https?:\/\//i.test(value) ? value : `https://${value}`,
+    );
+    if (
+      !["github.com", "www.github.com"].includes(url.hostname.toLowerCase()) ||
+      url.username ||
+      url.password
+    )
+      return null;
     return `https://github.com${url.pathname.replace(/\/$/, "")}${url.search}${url.hash}`;
-  } catch { return null; }
-}
-function assertDraftGitHubLinks(text: string, allowed: Set<string>) {
-  const normalized = new Set([...allowed].map(normalizeGitHubUrl).filter((url): url is string => !!url));
-  // Match both clickable HTTPS links and plain github.com/owner/repository copy.
-  for (const match of text.matchAll(/\b(?:https?:\/\/)?(?:www\.)?github\.com\/(?:[^\s<>"'\[\](){}]*)/gi)) {
-    const link = normalizeGitHubUrl(match[0].replace(/[.,;:!?]+$/, ""));
-    if (!link || !normalized.has(link))
-      throw new AppError(502, "Draft supplied an unsupported or incomplete GitHub URL.");
+  } catch {
+    return null;
   }
 }
-export function validatePositioning(value: unknown, ids: Set<string>, allowedGitHubUrls?: Set<string>) {
+function assertDraftGitHubLinks(text: string, allowed: Set<string>) {
+  const normalized = new Set(
+    [...allowed].map(normalizeGitHubUrl).filter((url): url is string => !!url),
+  );
+  // Match both clickable HTTPS links and plain github.com/owner/repository copy.
+  for (const match of text.matchAll(
+    /\b(?:https?:\/\/)?(?:www\.)?github\.com\/(?:[^\s<>"'\[\](){}]*)/gi,
+  )) {
+    const link = normalizeGitHubUrl(match[0].replace(/[.,;:!?]+$/, ""));
+    if (!link || !normalized.has(link))
+      throw new AppError(
+        502,
+        "Draft supplied an unsupported or incomplete GitHub URL.",
+      );
+  }
+}
+export function validatePositioning(
+  value: unknown,
+  ids: Set<string>,
+  allowedGitHubUrls?: Set<string>,
+) {
   const result = resultSchema.parse(value);
   if (result.angles.some((a) => a.evidenceIds.some((id) => !ids.has(id))))
     throw new AppError(502, "Model cited an unknown evidence ID.");
   if (allowedGitHubUrls) {
     for (const angle of result.angles) {
-      for (const text of [angle.linkedin, angle.x, angle.narration]) assertDraftGitHubLinks(text, allowedGitHubUrls);
+      for (const text of [angle.linkedin, angle.x, angle.narration])
+        assertDraftGitHubLinks(text, allowedGitHubUrls);
     }
   }
   return {
@@ -184,6 +208,7 @@ export async function generateJson<T>(
   validate: (value: unknown) => T,
   task: ModelDiagnostic["task"] = "json",
   outputSchema?: z.ZodTypeAny,
+  options: { timeoutMs?: number; maxTokens?: number; repair?: boolean } = {},
 ): Promise<T> {
   const config = modelConfig(provider);
   if (!config.key || !config.model || !config.base)
@@ -196,7 +221,11 @@ export async function generateJson<T>(
   let repair = "";
   let lastProblem = "";
   const callId = randomUUID();
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (
+    let attempt = 0;
+    attempt < (options.repair === false ? 1 : 2);
+    attempt++
+  ) {
     const started = Date.now();
     const diagnostic = (
       outcome: ModelDiagnostic["outcome"],
@@ -225,7 +254,7 @@ export async function generateJson<T>(
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.25,
-          maxOutputTokens: attempt ? 6144 : 4096,
+          maxOutputTokens: options.maxTokens || (attempt ? 6144 : 4096),
         },
       };
     } else {
@@ -249,7 +278,7 @@ export async function generateJson<T>(
         ],
         temperature: 0.25,
         // Reasoning models share this budget between reasoning and final JSON.
-        max_tokens: provider === "nebius" ? 8192 : 4096,
+        max_tokens: options.maxTokens || (provider === "nebius" ? 8192 : 4096),
         ...(provider === "nebius"
           ? {
               response_format: outputSchema
@@ -258,7 +287,9 @@ export async function generateJson<T>(
                     json_schema: {
                       name: task,
                       strict: true,
-                      schema: zodToJsonSchema(outputSchema, { $refStrategy: "none" }),
+                      schema: zodToJsonSchema(outputSchema, {
+                        $refStrategy: "none",
+                      }),
                     },
                   }
                 : { type: "json_object" },
@@ -277,14 +308,14 @@ export async function generateJson<T>(
         method: "POST",
         headers,
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(60_000),
+        signal: AbortSignal.timeout(options.timeoutMs || 60_000),
         redirect: "error",
       });
     } catch {
       diagnostic("transport_failed");
       throw new AppError(
         504,
-        "The selected model did not respond within 60 seconds or could not be reached. Retry or explicitly choose another configured model. No provider fallback was used.",
+        `The selected model did not respond within ${(options.timeoutMs || 60_000) / 1000} seconds or could not be reached. Retry or explicitly choose another configured model. No provider fallback was used.`,
       );
     }
     if (!response.ok) {
@@ -357,7 +388,7 @@ export async function generateJson<T>(
   }
   throw new AppError(
     502,
-    `Model output failed validation after one repair attempt: ${lastProblem} No fallback was used.`,
+    `Model output failed validation ${options.repair === false ? "without repair" : "after one repair attempt"}: ${lastProblem} No fallback was used.`,
   );
 }
 export async function generatePositioning(
@@ -366,7 +397,11 @@ export async function generatePositioning(
 ): Promise<Positioning> {
   const evidence = launchEvidence(job);
   const ids = new Set(evidence.map((e) => e.id));
-  const allowedGitHubUrls = new Set([job.repository, ...evidence.map(e => e.url)].filter(url => !!normalizeGitHubUrl(url)));
+  const allowedGitHubUrls = new Set(
+    [job.repository, ...evidence.map((e) => e.url)].filter(
+      (url) => !!normalizeGitHubUrl(url),
+    ),
+  );
   const data = {
     canonicalRepository: job.repository,
     allowedGitHubUrls: [...allowedGitHubUrls],
@@ -388,11 +423,22 @@ export async function generatePositioning(
     data,
     (value) => validatePositioning(value, ids, allowedGitHubUrls),
     "positioning",
-    resultSchema.extend({
-      angles: z.array(resultSchema.shape.angles.element.extend({
-        evidenceIds: z.array(z.enum([...ids] as [string, ...string[]])).min(1).max(8),
-      }).strict()).length(2),
-    }).strict(),
+    resultSchema
+      .extend({
+        angles: z
+          .array(
+            resultSchema.shape.angles.element
+              .extend({
+                evidenceIds: z
+                  .array(z.enum([...ids] as [string, ...string[]]))
+                  .min(1)
+                  .max(8),
+              })
+              .strict(),
+          )
+          .length(2),
+      })
+      .strict(),
   );
   return {
     ...result,

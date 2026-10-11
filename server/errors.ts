@@ -19,6 +19,8 @@ export function redact(text: string) {
     "GITHUB_CLIENT_SECRET",
     "NEBIUS_API_KEY",
     "CUSTOM_MODEL_API_KEY",
+    "RENDER_API_KEY",
+    "SUDO_DEMO_PASSWORD",
   ]) {
     const secret = process.env[name];
     if (secret && secret.length >= 8)

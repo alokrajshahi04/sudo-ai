@@ -106,7 +106,19 @@ export interface LaunchDrafts {
   angleIndex: number;
   positioningGeneratedAt: string;
 }
-export type ArtifactType = "recording" | "narration" | "music" | "video" | "poster" | "screenshot" | "captions" | "carousel-1" | "carousel-2" | "carousel-3" | "carousel-4" | "carousel-5";
+export type ArtifactType =
+  | "recording"
+  | "narration"
+  | "music"
+  | "video"
+  | "poster"
+  | "screenshot"
+  | "captions"
+  | "carousel-1"
+  | "carousel-2"
+  | "carousel-3"
+  | "carousel-4"
+  | "carousel-5";
 export interface Job {
   id: string;
   repository: string;
@@ -120,7 +132,12 @@ export interface Job {
   readinessReviewedAt?: string;
   narrationScript?: string;
   drafts?: LaunchDrafts;
-  carousel?: { generatedAt: string; copyFingerprint: string; slideCount: 5; format: "1080x1350" };
+  carousel?: {
+    generatedAt: string;
+    copyFingerprint: string;
+    slideCount: 5;
+    format: "1080x1350";
+  };
   captions?: { start: number; end: number; text: string }[];
   capture?: {
     url: string;
@@ -150,7 +167,7 @@ export interface Job {
   }[];
 }
 export interface Capabilities {
-  mode: "local";
+  mode: "local" | "hosted-demo";
   defaultModelProvider?: ModelProvider;
   models: { provider: ModelProvider; model: string; configured: boolean }[];
   narration: boolean;

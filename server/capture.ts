@@ -5,11 +5,18 @@ import { join } from "node:path";
 import { z } from "zod";
 import { fetchPublicResource, publicUrl } from "./network";
 import { AppError } from "./errors";
+import {
+  chooseDemoControl,
+  safeDemoControls,
+  type DemoControl,
+} from "./capture-agent";
+import type { ModelProvider } from "../shared/types";
 
 export const captureSchema = z
   .object({
     url: z.string().max(1000),
     approved: z.literal(true),
+    automatic: z.boolean().optional(),
     format: z.enum(["landscape", "portrait"]).default("portrait"),
     steps: z
       .array(
@@ -38,20 +45,35 @@ export async function captureAvailable() {
   const directory = await mkdtemp(join(tmpdir(), "sudo-capture-check-"));
   let browser;
   try {
-    browser = await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_PATH || chromium.executablePath(),handleSIGINT:false,handleSIGTERM:false,handleSIGHUP:false});
-    const context = await browser.newContext({recordVideo:{dir:directory,size:{width:320,height:180}},viewport:{width:320,height:180}});
+    browser = await chromium.launch({
+      headless: true,
+      executablePath:
+        process.env.PLAYWRIGHT_CHROMIUM_PATH || chromium.executablePath(),
+      handleSIGINT: false,
+      handleSIGTERM: false,
+      handleSIGHUP: false,
+    });
+    const context = await browser.newContext({
+      recordVideo: { dir: directory, size: { width: 320, height: 180 } },
+      viewport: { width: 320, height: 180 },
+    });
     const page = await context.newPage();
     await page.setContent("<p>Capture encoder check</p>");
     await page.waitForTimeout(50);
     await context.close();
     return true;
-  } catch { return false; }
-  finally {await browser?.close();await rm(directory,{recursive:true,force:true});}
+  } catch {
+    return false;
+  } finally {
+    await browser?.close();
+    await rm(directory, { recursive: true, force: true });
+  }
 }
 export async function captureSite(
   input: CaptureInput,
   progress: (step: string) => void = () => {},
   transport = fetchPublicResource,
+  agentProvider?: ModelProvider,
 ) {
   publicUrl(input.url);
   const directory = await mkdtemp(join(tmpdir(), "sudo-capture-"));
@@ -115,6 +137,90 @@ export async function captureSite(
       );
     await page.waitForTimeout(2000);
     const steps: string[] = ["Opened the public page"];
+    if (input.automatic) {
+      if (!agentProvider)
+        throw new AppError(
+          409,
+          "Choose a configured model for automatic demo recording.",
+        );
+      const visited: string[] = [];
+      for (let index = 0; index < 4; index++) {
+        progress(`Finding a safe demo interaction (${index + 1}/4)`);
+        const controls = await page.evaluate(() =>
+          Array.from(document.querySelectorAll("button,a,[role=button]"))
+            .filter((element) => {
+              const node = element as HTMLElement;
+              if (
+                !node.offsetWidth ||
+                !node.offsetHeight ||
+                getComputedStyle(node).visibility === "hidden" ||
+                node.closest("form") ||
+                node.hasAttribute("form") ||
+                node.hasAttribute("disabled")
+              )
+                return false;
+              if (node instanceof HTMLAnchorElement) {
+                try {
+                  return (
+                    new URL(node.href).origin === location.origin &&
+                    !node.hasAttribute("download")
+                  );
+                } catch {
+                  return false;
+                }
+              }
+              return true;
+            })
+            .map((element) => ({
+              role:
+                element.tagName === "A"
+                  ? ("link" as const)
+                  : ("button" as const),
+              name: (
+                element.getAttribute("aria-label") ||
+                element.textContent ||
+                ""
+              )
+                .replace(/\s+/g, " ")
+                .trim(),
+            }))
+            .slice(0, 40),
+        );
+        let target: DemoControl | null;
+        try {
+          target = await chooseDemoControl(
+            agentProvider,
+            safeDemoControls(controls, visited),
+            visited,
+          );
+        } catch {
+          steps.push(
+            "AI planning unavailable; retained the public-page view without further clicks",
+          );
+          break;
+        }
+        if (!target) break;
+        const locator = page.getByRole(target.role, {
+          name: target.name,
+          exact: true,
+        });
+        if ((await locator.count()) !== 1 || !(await locator.isVisible()))
+          break;
+        visited.push(`${target.role}:${target.name}`);
+        const clicked = await locator
+          .click({ timeout: 3000 })
+          .then(() => true)
+          .catch(() => false);
+        if (!clicked) {
+          steps.push(
+            "A planned interaction could not be completed; retained the current view",
+          );
+          break;
+        }
+        steps.push(`Automated ${target.role}: ${target.name}`);
+        await page.waitForTimeout(1200);
+      }
+    }
     for (const [index, step] of input.steps.entries()) {
       progress(`Recording capture step ${index + 1} of ${input.steps.length}`);
       if (step.action === "scroll") {

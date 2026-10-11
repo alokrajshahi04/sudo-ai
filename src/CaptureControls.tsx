@@ -23,6 +23,7 @@ export default function CaptureControls({
   const [names, setNames] = useState("");
   const [scroll, setScroll] = useState(true);
   const [approved, setApproved] = useState(false);
+  const [autoApproved, setAutoApproved] = useState(false);
   const labels = names
     .split("\n")
     .map((n) => n.trim())
@@ -36,10 +37,49 @@ export default function CaptureControls({
   const recording = job.artifacts.find((a) => a.type === "recording");
   return (
     <section className="capture-controls" aria-label="Product visuals">
-      <h3>Show your actual product.</h3>
-      <p>Record a public deployed page, upload footage, or add a screenshot.</p>
-      <details className="capture-form" open={!recording}>
-        <summary>Record from a deployed URL</summary>
+      <p>Choose a public demo recording or upload your own visuals below.</p>
+      {url && recorderAvailable && (
+        <div className="auto-capture">
+          <strong>Record the project for me</strong>
+          <p className="footnote">
+            Chromium opens the repository’s public demo. A bounded model can
+            choose up to four safe controls; it cannot log in, submit forms or
+            make payments.
+          </p>
+          <p className="footnote">Demo: {url}</p>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={autoApproved}
+              disabled={busy}
+              onChange={(event) => setAutoApproved(event.target.checked)}
+            />
+            I approve public browser recording and model usage for the capture
+            plan.
+          </label>
+          <button
+            className="primary"
+            disabled={busy || !autoApproved}
+            onClick={() =>
+              onCapture({
+                url,
+                automatic: true,
+                steps: [],
+                format,
+                approved: true,
+              })
+            }
+          >
+            Auto-record product demo →
+          </button>
+        </div>
+      )}
+      <details className="capture-form">
+        <summary>
+          {url
+            ? "Edit URL or set exact recording steps"
+            : "Record from a deployed URL"}
+        </summary>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -56,6 +96,7 @@ export default function CaptureControls({
             onChange={(e) => {
               setUrl(e.target.value);
               setApproved(false);
+              setAutoApproved(false);
             }}
           />
           <label htmlFor="capture-buttons">
@@ -111,7 +152,13 @@ export default function CaptureControls({
           >
             Record deployed demo →
           </button>
-          {!recorderAvailable && <p className="footnote">Recording needs Chromium and Playwright’s encoder. Run npm run setup:browser; with an existing Chromium, run npx playwright install ffmpeg.</p>}
+          {!recorderAvailable && (
+            <p className="footnote">
+              Recording needs Chromium and Playwright’s encoder. Run npm run
+              setup:browser; with an existing Chromium, run npx playwright
+              install ffmpeg.
+            </p>
+          )}
         </form>
       </details>
       {job.capture && (

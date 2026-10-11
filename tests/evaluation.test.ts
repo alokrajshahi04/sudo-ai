@@ -127,7 +127,16 @@ test("Public capture records selected steps, blocks writes, exports valid footag
     t.skip("Chromium/FFmpeg unavailable");
     return;
   }
-  assert.throws(() => captureSchema.parse({url:'https://demo.example/',approved:true,steps:Array.from({length:6},()=>({action:'scroll',pixels:100}))}));
+  assert.throws(() =>
+    captureSchema.parse({
+      url: "https://demo.example/",
+      approved: true,
+      steps: Array.from({ length: 6 }, () => ({
+        action: "scroll",
+        pixels: 100,
+      })),
+    }),
+  );
   let writes = 0;
   const result = await captureSite(
     captureSchema.parse({
@@ -178,4 +187,65 @@ test("Public capture records selected steps, blocks writes, exports valid footag
   assert.equal(promo.video.subarray(4, 8).toString(), "ftyp");
   assert.equal(promo.poster.readUInt32BE(16), 1080);
   assert.equal(promo.poster.readUInt32BE(20), 1920);
+});
+
+test("Automatic capture uses permitted demo controls and preserves footage when AI becomes unavailable", async (t) => {
+  if (!process.env.PLAYWRIGHT_CHROMIUM_PATH) {
+    t.skip("Chromium unavailable");
+    return;
+  }
+  const previousFetch = globalThis.fetch,
+    previousKey = process.env.NEBIUS_API_KEY;
+  process.env.NEBIUS_API_KEY = "fixture-key";
+  let choices = 0;
+  globalThis.fetch = async (_url, init) => {
+    const body = JSON.parse(String(init?.body));
+    const data = JSON.parse(
+      body.messages[1].content.split("UNTRUSTED_DATA_JSON:\n")[1],
+    );
+    assert.deepEqual(
+      data.controls.map((c: any) => c.name),
+      choices ? ["Explore"] : ["Show demo", "Explore"],
+    );
+    if (choices++) return new Response("Unavailable", { status: 503 });
+    return new Response(
+      JSON.stringify({
+        choices: [
+          { finish_reason: "stop", message: { content: '{"choice":"0"}' } },
+        ],
+      }),
+    );
+  };
+  try {
+    const result = await captureSite(
+      captureSchema.parse({
+        url: "https://demo.example/",
+        approved: true,
+        automatic: true,
+        steps: [],
+      }),
+      () => {},
+      async () => ({
+        status: 200,
+        headers: { "content-type": "text/html" },
+        body: Buffer.from(
+          `<h1>Demo</h1><button onclick="document.querySelector('h1').textContent='Product in action'">Show demo</button><button>Explore</button><button>Delete</button><form><button>Preview form</button></form><a href="https://external.example/">External</a><button style="display:none">Hidden</button>`,
+        ),
+      }),
+      "nebius",
+    );
+    assert.equal(choices, 2);
+    assert.ok(result.capture.steps.includes("Automated button: Show demo"));
+    assert.ok(
+      result.capture.steps.some((step) =>
+        step.includes("AI planning unavailable"),
+      ),
+    );
+    assert.equal(result.screenshot.subarray(1, 4).toString(), "PNG");
+    assert.ok(result.recording.length > 1000);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.NEBIUS_API_KEY;
+    else process.env.NEBIUS_API_KEY = previousKey;
+  }
 });

@@ -8,7 +8,7 @@ Pitch: **Developers can build fast but struggle to explain and share what they b
 2. Show repository context and source coverage. Explain that source inspection does not certify runtime behavior.
 3. Review the audience/goal, then confirm the brief and continue to launch stories. There is no readiness checklist or deployed URL requirement.
 4. Generate two launch stories with the explicitly selected model. For venue resilience, skip optional research in the live walkthrough. Choose a story, edit the LinkedIn/X/Instagram/narration drafts, review the claims and save. Show that polling and reload preserve the saved copy.
-5. Expand **Create a launch video**. Choose portrait, record the deployed demo with reviewed exact-label clicks (for PokeChess: `PRESS START`, `Skip`, `Local PvP Pass & Play Mode`, `Start Battle ⚔️`; turn scrolling off), prepare its storyboard, review the short narration and approve ElevenLabs generation. Render with generated voice and aligned captions. Show the MP4, generate the five-slide carousel, review its screenshot-backed proof slide, and download the complete ZIP. Choose a future launch time to include optional manual calendar reminders.
+5. Expand **Create a launch video**. **Product visuals** offers approved AI browser recording when a public demo URL is available, exact recording steps, or uploads. For a predictable PokeChess walkthrough, use `PRESS START`, `Skip`, `Local PvP Pass & Play Mode`, `Start Battle ⚔️` and turn scrolling off. In **Voice & captions**, review the short script and approve ElevenLabs generation. In **Review & render**, choose portrait, prepare the storyboard and render with aligned captions. Show the MP4, expand **Instagram carousel** to generate the slides, then download the complete ZIP. **Launch plan & reminders** holds the optional posting schedule.
 
 Account/quota errors are visible. Manual brief editing remains available when model suggestions fail; no fabricated fallback drafts are inserted. Never describe prerecorded output as the result of a live request.
 
@@ -31,7 +31,7 @@ User setup remaining: GitHub OAuth (only needed for connected/private access), r
 
 ## Product boundaries and next release
 
-The current release runs locally with server `.env` credentials. Public hosted credential entry needs durable storage, authentication, encrypted per-user keys, read-only repository permissions and isolated media workers. Render/DigitalOcean credits can support that later. No user-project deployments, automatic repository edits or social publication are performed.
+The default release runs locally with server `.env` credentials. A [restricted Render demo](hosting.md) has HTTPS access protection, Secure session cookies and persistent SQLite. Public hosted credential entry still needs per-user authentication, encrypted keys, read-only repository permissions and isolated media workers. No user-project deployments, automatic repository edits or social publication are performed.
 
 A useful post-event direction is release-to-launch: reuse a confirmed audience and tone, compare releases, draft what changed, and measure whether developers actually share the resulting pack. Viral reach and hackathon prizes are not guaranteed outcomes.
 

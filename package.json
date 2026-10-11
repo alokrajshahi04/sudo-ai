@@ -10,7 +10,7 @@
     "dev:api": "tsx watch --env-file-if-exists=.env server/index.ts",
     "dev:web": "vite --host 127.0.0.1",
     "start": "tsx --env-file-if-exists=.env server/index.ts",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx --test --test-concurrency=2 tests/*.test.ts",
     "test:ui": "playwright test",
     "setup:browser": "playwright install chromium"
   },

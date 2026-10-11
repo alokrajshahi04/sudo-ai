@@ -11,7 +11,7 @@ Sudo Launch helps student and solo developers explain, demonstrate and share pro
 - Reads selected source at a pinned commit across web apps, Python tools, libraries, workspaces and prototypes. It never installs or executes the repository.
 - Uses repository context and your audience/goal to write launch stories, without readiness checklists or deployment gates.
 - Writes two evidence-cited launch stories using Gemma through AI Studio, Nebius GLM, or a locally configured compatible model. You confirm the brief and review findings first.
-- Records an approved public deployed URL with explicit click/scroll steps, or accepts your recording and screenshots.
+- Records an approved public demo with bounded AI-selected interactions or your exact click/scroll steps, or accepts uploaded footage and screenshots. Videos without product visuals use a branded explainer; raw code is never shown as demo footage.
 - Composes portrait 1080×1920 or landscape 1280×720 MP4s using a reviewed storyboard, optional ElevenLabs narration/music, and captions aligned to the generated voice. Exports a poster and SRT too.
 - Saves reviewed copy edits and composes five 1080×1350 Instagram slides from the chosen story and optional product screenshot.
 - Downloads one ZIP with current copy, available media, carousel, storyboard and execution receipt. A future launch date adds manual calendar reminders.
@@ -32,7 +32,15 @@ npm run dev
 
 Open http://localhost:5173. Add your own provider credentials to the ignored `.env`, then restart the API. Source inspection and manual briefs work without a model key; generation requires a configured provider. No API keys are entered in the browser.
 
-The app runs on localhost. Jobs, reviewed edits and media persist in ignored `.local/sudo-launch.sqlite` for seven days by default (`SUDO_RETENTION_DAYS`); deletion removes the job and its media. The database has owner-only file permissions and contains project content, not provider keys or GitHub tokens. Keep the same browser cookie to resume your jobs. Interrupted operations require an explicit retry; paid calls never retry automatically. A public hosted BYOK service remains a future release requiring authentication, encrypted per-user credentials and isolated workers.
+The default app runs on localhost. Jobs, reviewed edits and media persist in ignored `.local/sudo-launch.sqlite` for seven days (`SUDO_RETENTION_DAYS`); deletion removes the job and its media. The database has owner-only file permissions and contains project content, not provider keys or GitHub tokens. Keep the same browser cookie to resume your jobs. Interrupted operations require an explicit retry; paid calls never retry automatically.
+
+## Host a restricted demo on Render
+
+The included [Render Blueprint](render.yaml) builds a Docker web service with Chromium, FFmpeg and a persistent SQLite disk. It selects **1 CPU / 2 GB RAM at $25/month**, billed proportionally to running time, plus a 1 GB disk at $0.25/month. Render's free web service has 512 MB RAM; the advertised 25 MB belongs to its Key Value service. The larger web instance is recommended for video capture and rendering.
+
+Connect this repository through Render's **New → Blueprint** flow, supply the Nebius/ElevenLabs credentials when prompted, and keep automatic deployments disabled until you choose to update. The generated `SUDO_DEMO_PASSWORD` and username `judge` protect the UI, API and media with HTTPS Basic authentication. Set a separate GitHub OAuth callback to `https://YOUR-SERVICE.onrender.com/api/auth/github/callback` if you enable sign-in. Public repo discovery works without OAuth.
+
+Hosted mode allows one operation at a time. Video composition closes Chromium before FFmpeg encoding to reduce peak memory. Session-owned jobs use the persistent disk; your local database and prepared demo files are excluded from the image. This is an owner-funded demo for people you give access to. A public BYOK product still requires per-user authentication, encrypted credentials and isolated workers. See [hosting details](docs/hosting.md).
 
 ## Development and demo
 

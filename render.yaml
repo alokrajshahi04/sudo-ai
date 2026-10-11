@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: sudo-launch
+    runtime: docker
+    plan: 1c-2g # 1 CPU, 2 GB RAM; $25/month compute, prorated.
+    healthCheckPath: /healthz
+    autoDeployTrigger: 'off'
+    disk:
+      name: launch-memory
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: SUDO_DB_PATH
+        value: /var/data/sudo-launch.sqlite
+      - key: DEFAULT_MODEL_PROVIDER
+        value: nebius
+      - key: NEBIUS_MODEL
+        value: zai-org/GLM-5.3-Flash
+      - key: NEBIUS_BASE_URL
+        value: https://api.tokenfactory.us-north1.nebius.com/v1/
+      - key: NEBIUS_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_VOICE_ID
+        sync: false
+      - key: SUDO_DEMO_USERNAME
+        value: judge
+      - key: SUDO_DEMO_PASSWORD
+        generateValue: true

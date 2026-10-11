@@ -1,6 +1,6 @@
 # Local development
 
-Sudo Launch is a repo-first product marketing app: source review → confirmed brief → two launch stories → downloadable pack. This build runs on localhost; public hosting and browser credential entry are not enabled.
+Sudo Launch is a repo-first product marketing app: source context → confirmed brief → two launch stories → downloadable pack. Localhost is the default. A restricted HTTPS demo is supported through [Render hosting](hosting.md); browser credential entry is not enabled.
 
 ## Start
 
@@ -51,7 +51,9 @@ Nebius requests strict JSON-schema output for analysis and positioning, with enu
 6. Choose a story, prepare the sharing plan and download the Markdown kit/JSON receipt. Review and publish yourself.
 7. Optionally record an approved public deployed URL with up to five approved click/scroll steps, upload footage (MP4/WebM, 3–120s, ≤30 MB), or upload a PNG/JPEG screenshot (≤8 MB). Review a 25-second storyboard reflecting the chosen visual, generate approved ElevenLabs voice/music, then render portrait 1080×1920 or landscape 1280×720. Narration uses provider character alignment for SRT and burned captions. Download MP4, PNG poster and SRT. Calendar export creates dated manual-posting reminders. Narration longer than the storyboard is rejected with a shorten-script instruction, rather than silently cut.
 
-The renderer adapts [Brag](https://github.com/latent-spaces/brag)'s inspect/plan/compose/deliver structure, scene timing, readable holds and source provenance. It uses Chromium + FFmpeg, **not upstream Hyperframes**. A Markdown storyboard handoff is exported for the upstream Brag skill. No upstream bundled music/SFX are included; see [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md). Source-card videos do not demonstrate working product interactions.
+Automatic recording can choose up to four visible demo controls through the selected model, with a 15-second, single-attempt planning budget per choice. Only supplied choices are accepted; form controls, external links, repeated interactions and account/payment/destructive labels are excluded. If planning fails, the footage preserves the public view and reports the limitation. Exact-step capture and uploads remain available.
+
+The renderer adapts [Brag](https://github.com/latent-spaces/brag)'s inspect/plan/compose/deliver structure, scene timing, readable holds and source provenance. It uses Chromium + FFmpeg, **not upstream Hyperframes**. A Markdown storyboard handoff is exported for the upstream Brag skill. No upstream bundled music/SFX are included; see [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md). Without actual visuals, the video shows a branded product explainer instead of raw source; it does not demonstrate working product interactions.
 
 ## API
 
@@ -81,7 +83,7 @@ The renderer adapts [Brag](https://github.com/latent-spaces/brag)'s inspect/plan
 
 ## Local boundaries
 
-Jobs, saved copy and media survive API restarts in local SQLite and expire after seven days by default; deletion removes associated assets. Five jobs/session, 30 jobs total, three concurrent operations, 200 MB retained media, 30 mutations/minute/session. The UI resumes owned jobs after refresh; first-visit hints and explicit model preference use localStorage, never keys.
+Jobs, saved copy and media survive API restarts in SQLite and expire after seven days by default; deletion removes associated assets. Five jobs/session, 30 jobs total, three concurrent operations locally (one in hosted mode), 200 MB retained media, 30 mutations/minute/session. The UI resumes owned jobs after refresh; first-visit hints and explicit model preference use localStorage, never keys.
 
 Host/Origin checks and HttpOnly Strict cookies protect local requests. Public page checks enforce HTTPS/443, reject private/reserved IPs, pin validated DNS and revalidate redirects. Source/pages/model output are untrusted data and cannot authorize tools. Model JSON/evidence validation permits one targeted repair, then fails visibly with no provider fallback.
 

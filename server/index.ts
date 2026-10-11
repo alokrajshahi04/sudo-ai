@@ -33,6 +33,7 @@ import { makeStoryboard, promoAvailable, renderPromo } from "./promo";
 import { registerDraftRoutes } from "./drafts";
 import { registerPackRoutes, jobReceipt } from "./launch-pack";
 import { currentDrafts, selectedCopy } from "../shared/launch-copy";
+import { hostingConfig, demoAccess } from "./hosting";
 import {
   validateRecording,
   narrateWithAlignment,
@@ -44,6 +45,7 @@ import {
 
 const app = express();
 app.disable("x-powered-by");
+const hosting = hostingConfig();
 const port = Number(process.env.PORT || 3001);
 const connections = new GitHubConnections();
 const retention = retentionMilliseconds();
@@ -57,9 +59,15 @@ let ffmpegAvailable = false;
 let chromiumAvailable = false;
 let recorderAvailable = false;
 const mediaSetup = Promise.allSettled([
-  captureAvailable().then(available => {recorderAvailable=available;}),
-  promoAvailable().then(available => {chromiumAvailable=available;}),
-  execute("ffmpeg",["-version"],5000).then(()=>{ffmpegAvailable=true;}),
+  captureAvailable().then((available) => {
+    recorderAvailable = available;
+  }),
+  promoAvailable().then((available) => {
+    chromiumAvailable = available;
+  }),
+  execute("ffmpeg", ["-version"], 5000).then(() => {
+    ffmpegAvailable = true;
+  }),
 ]);
 const origins = new Set([
   "http://localhost:5173",
@@ -67,9 +75,21 @@ const origins = new Set([
   `http://localhost:${port}`,
   `http://127.0.0.1:${port}`,
 ]);
+if (hosting.publicOrigin) origins.add(hosting.publicOrigin);
+app.get("/healthz", (_req, res) => res.json({ status: "ok" }));
+if (hosting.publicOrigin)
+  app.use(
+    demoAccess(
+      process.env.SUDO_DEMO_USERNAME!,
+      process.env.SUDO_DEMO_PASSWORD!,
+    ),
+  );
 app.use((req, res, next) => {
   const host = req.headers.host || "";
-  if (!/^(?:localhost|127\.0\.0\.1):\d+$/.test(host))
+  if (
+    !/^(?:localhost|127\.0\.0\.1):\d+$/.test(host) &&
+    host !== (hosting.publicOrigin && new URL(hosting.publicOrigin).host)
+  )
     return res.status(403).json({
       error: "Local application only. Public hosting is not enabled.",
     });
@@ -92,12 +112,9 @@ app.use((req, res, next) => {
   // sessions are restored only after state, nonce, PKCE and identity verification.
   if (req.path === "/api/auth/github/callback") return next();
   let session = cookies.sudo_session;
-  let owner = session && /^[a-f0-9]{64}$/.test(session) ? sessionOwner(session) : "";
-  if (
-    !session ||
-    !sessions.has(owner) ||
-    sessions.get(owner)! <= Date.now()
-  ) {
+  let owner =
+    session && /^[a-f0-9]{64}$/.test(session) ? sessionOwner(session) : "";
+  if (!session || !sessions.has(owner) || sessions.get(owner)! <= Date.now()) {
     cleanupExpired();
     if (sessions.size >= 100)
       return res.status(429).json({ error: "Local session limit reached." });
@@ -109,6 +126,7 @@ app.use((req, res, next) => {
   if ((sessions.get(owner) || 0) < Date.now() + retention * 0.75) {
     res.cookie("sudo_session", session, {
       httpOnly: true,
+      secure: hosting.secureCookies,
       sameSite: "strict",
       maxAge: retention,
       path: "/",
@@ -153,7 +171,8 @@ function getJob(id: string, owner: string) {
 export function persistJob(job: Job) {
   const owned = jobs.get(job.id);
   // Expiry/deletion during a worker must not recreate a deleted job or its assets.
-  if (owned && sessions.has(owned.owner)) store.saveJob(owned, media.get(job.id) || {});
+  if (owned && sessions.has(owned.owner))
+    store.saveJob(owned, media.get(job.id) || {});
 }
 export function persistMedia(jobId: string) {
   const job = jobs.get(jobId);
@@ -172,10 +191,10 @@ function publicJob(job: Job & { owner: string }): Job {
 function operation(job: Job, phase: Phase, work: () => Promise<void>) {
   if (busy.has(job.id))
     throw new AppError(409, "This job is already running an operation.");
-  if (busy.size >= 3)
+  if (busy.size >= (hosting.publicOrigin ? 1 : 3))
     throw new AppError(
       429,
-      "Worker limit reached. Retry after another job finishes.",
+      "Worker limit reached. Retry after the current job finishes.",
     );
   busy.add(job.id);
   job.phases[phase] = { state: "running" };
@@ -192,11 +211,20 @@ function operation(job: Job, phase: Phase, work: () => Promise<void>) {
       if (jobs.has(job.id)) persistJob(job);
       else media.delete(job.id);
     })
-    .catch(() => console.error("Local launch storage could not save an operation. Check disk space and permissions."));
+    .catch(() =>
+      console.error(
+        "Local launch storage could not save an operation. Check disk space and permissions.",
+      ),
+    );
 }
 function capacity(bytes: Buffer, replaced?: Buffer) {
   const total = [...media.values()].reduce(
-    (n, a) => n + Object.values(a).reduce((bytes, asset) => bytes + (asset?.length || 0), 0),
+    (n, a) =>
+      n +
+      Object.values(a).reduce(
+        (bytes, asset) => bytes + (asset?.length || 0),
+        0,
+      ),
     0,
   );
   if (total + bytes.length - (replaced?.length || 0) > 200_000_000)
@@ -230,8 +258,16 @@ function clearCarousel(job: Job) {
   job.carousel = undefined;
   job.phases.carousel = { state: "idle" };
   const assets = media.get(job.id);
-  if (assets) for (const type of ["carousel-1", "carousel-2", "carousel-3", "carousel-4", "carousel-5"] as const) delete assets[type];
-  job.artifacts = job.artifacts.filter(a => !a.type.startsWith("carousel-"));
+  if (assets)
+    for (const type of [
+      "carousel-1",
+      "carousel-2",
+      "carousel-3",
+      "carousel-4",
+      "carousel-5",
+    ] as const)
+      delete assets[type];
+  job.artifacts = job.artifacts.filter((a) => !a.type.startsWith("carousel-"));
 }
 function clearNarration(job: Job) {
   job.narrationScript = undefined;
@@ -239,13 +275,17 @@ function clearNarration(job: Job) {
   job.phases.narrate = { state: "idle" };
   job.phases.render = { state: "idle" };
   const assets = media.get(job.id);
-  if (assets) for (const type of ["narration", "captions", "video", "poster"] as const) delete assets[type];
-  job.artifacts = job.artifacts.filter(a => !["narration", "captions", "video", "poster"].includes(a.type));
+  if (assets)
+    for (const type of ["narration", "captions", "video", "poster"] as const)
+      delete assets[type];
+  job.artifacts = job.artifacts.filter(
+    (a) => !["narration", "captions", "video", "poster"].includes(a.type),
+  );
 }
 app.get("/api/capabilities", (_req, res) => {
   const providers: ModelProvider[] = ["google", "nebius", "custom"];
   const capabilities: Capabilities = {
-    mode: "local",
+    mode: hosting.publicOrigin ? "hosted-demo" : "local",
     defaultModelProvider: defaultModelProvider(),
     models: providers.map((provider) => {
       const c = modelConfig(provider);
@@ -284,9 +324,13 @@ app.post("/api/auth/github/start", (req, res) => {
   z.object({}).strict().parse(req.body);
   const callback = `${req.headers.origin}/api/auth/github/callback`;
   const started = connections.begin(res.locals.owner, callback);
-  oauthSessions.set(res.locals.owner, { token: res.locals.sessionToken, expires: Date.now() + 600_000 });
+  oauthSessions.set(res.locals.owner, {
+    token: res.locals.sessionToken,
+    expires: Date.now() + 600_000,
+  });
   res.cookie("sudo_oauth", started.nonce, {
     httpOnly: true,
+    secure: hosting.secureCookies,
     sameSite: "lax",
     maxAge: 600_000,
     path: "/api/auth/github/callback",
@@ -301,6 +345,7 @@ app.get("/api/auth/github/callback", async (req, res) => {
       .find((s) => s.startsWith("sudo_oauth="))
       ?.slice("sudo_oauth=".length) || "";
   res.clearCookie("sudo_oauth", {
+    secure: hosting.secureCookies,
     path: "/api/auth/github/callback",
     sameSite: "lax",
     httpOnly: true,
@@ -318,9 +363,13 @@ app.get("/api/auth/github/callback", async (req, res) => {
     const originalSession = oauthSessions.get(owner);
     oauthSessions.delete(owner);
     if (!originalSession || originalSession.expires <= Date.now())
-      throw new AppError(400, "GitHub sign-in expired. Start again from this browser.");
+      throw new AppError(
+        400,
+        "GitHub sign-in expired. Start again from this browser.",
+      );
     res.cookie("sudo_session", originalSession.token, {
       httpOnly: true,
+      secure: hosting.secureCookies,
       sameSite: "strict",
       maxAge: retention,
       path: "/",
@@ -387,7 +436,11 @@ async function readProject(job: Job & { owner: string }) {
   job.inspection = inspected;
   job.readinessReviewedAt = undefined;
   job.progressStep = "Preparing launch context";
-  job.readiness = reviewReadiness(job.repository, inspected, job.analysis?.findings);
+  job.readiness = reviewReadiness(
+    job.repository,
+    inspected,
+    job.analysis?.findings,
+  );
   if (!job.repoFirst || job.launchBrief) {
     job.progressStep = undefined;
     return;
@@ -411,8 +464,21 @@ async function readProject(job: Job & { owner: string }) {
 async function checkSite(job: Job, url: string) {
   const page = await fetchPublic(url);
   const title = page.text.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
-  job.site={url,finalUrl:page.url,httpStatus:page.status,reachable:page.status>=200 && page.status<300,title:title?redact(plainText(title)).slice(0,200):null,checkedAt:new Date().toISOString(),builtRevision:null,interaction:"not_checked"};
-  if(!job.site.reachable)throw new AppError(422,`Site returned HTTP ${page.status}; reachability did not pass.`);
+  job.site = {
+    url,
+    finalUrl: page.url,
+    httpStatus: page.status,
+    reachable: page.status >= 200 && page.status < 300,
+    title: title ? redact(plainText(title)).slice(0, 200) : null,
+    checkedAt: new Date().toISOString(),
+    builtRevision: null,
+    interaction: "not_checked",
+  };
+  if (!job.site.reachable)
+    throw new AppError(
+      422,
+      `Site returned HTTP ${page.status}; reachability did not pass.`,
+    );
 }
 const launchBriefSchema = z
   .object({
@@ -492,12 +558,16 @@ app.post("/api/jobs", (req, res) => {
   jobs.set(job.id, job);
   operation(job, "inspect", async () => {
     await readProject(job);
-    if(input.demoUrl) {
-      job.progressStep="Checking your deployed project link";
-      job.phases.verify={state:"running"};
-      try {await checkSite(job,input.demoUrl);job.phases.verify={state:"completed"};}
-      catch(e){job.phases.verify={state:"failed",error:safeError(e)};}
-      job.progressStep=undefined;
+    if (input.demoUrl) {
+      job.progressStep = "Checking your deployed project link";
+      job.phases.verify = { state: "running" };
+      try {
+        await checkSite(job, input.demoUrl);
+        job.phases.verify = { state: "completed" };
+      } catch (e) {
+        job.phases.verify = { state: "failed", error: safeError(e) };
+      }
+      job.progressStep = undefined;
     }
   });
   res.status(202).json(publicJob(job));
@@ -505,7 +575,10 @@ app.post("/api/jobs", (req, res) => {
 app.get("/api/jobs", (req, res) =>
   res.json(
     [...jobs.values()]
-      .filter((j) => j.owner === res.locals.owner && Date.parse(j.expiresAt) > Date.now())
+      .filter(
+        (j) =>
+          j.owner === res.locals.owner && Date.parse(j.expiresAt) > Date.now(),
+      )
       .map(publicJob),
   ),
 );
@@ -755,7 +828,7 @@ app.post("/api/jobs/:id/verify", (req, res) => {
   operation(job, "verify", async () => {
     job.site = undefined;
     clearGenerated(job);
-    await checkSite(job,input.url);
+    await checkSite(job, input.url);
   });
   res.status(202).json(publicJob(job));
 });
@@ -802,12 +875,20 @@ app.post("/api/jobs/:id/capture", (req, res) => {
   if (!job.inspection)
     throw new AppError(409, "Read the project source first.");
   if (!recorderAvailable || !ffmpegAvailable)
-    throw new AppError(409, "Capture requires Chromium, system FFmpeg and Playwright's encoder. Run npm run setup:browser, or npx playwright install ffmpeg when using an existing Chromium.");
+    throw new AppError(
+      409,
+      "Capture requires Chromium, system FFmpeg and Playwright's encoder. Run npm run setup:browser, or npx playwright install ffmpeg when using an existing Chromium.",
+    );
   operation(job, "recording", async () => {
     try {
-      const result = await captureSite(input, (step) => {
-        job.progressStep = step;
-      });
+      const result = await captureSite(
+        input,
+        (step) => {
+          job.progressStep = step;
+        },
+        undefined,
+        input.automatic ? job.modelPreference : undefined,
+      );
       await validateRecording(result.recording);
       const assets = media.get(job.id) || {};
       capacity(
@@ -903,9 +984,12 @@ app.post("/api/jobs/:id/narrate", (req, res) => {
     if (selectedCopy(job).narration !== job.narrationScript) {
       const previous = currentDrafts(job);
       job.drafts = {
-        ...selectedCopy(job), narration: job.narrationScript,
-        angleIndex: job.selectedAngle, positioningGeneratedAt: job.positioning!.generatedAt,
-        updatedAt: new Date().toISOString(), reviewedAt: previous?.reviewedAt,
+        ...selectedCopy(job),
+        narration: job.narrationScript,
+        angleIndex: job.selectedAngle,
+        positioningGeneratedAt: job.positioning!.generatedAt,
+        updatedAt: new Date().toISOString(),
+        reviewedAt: previous?.reviewedAt,
       };
       clearCarousel(job);
     }
@@ -966,11 +1050,16 @@ app.post("/api/jobs/:id/music", (req, res) => {
   res.status(202).json(publicJob(job));
 });
 app.post("/api/jobs/:id/storyboard", (req, res) => {
-  const input = z.object({visual:z.enum(["source","recording","screenshot"]).default("source")}).strict().parse(req.body);
+  const input = z
+    .object({
+      visual: z.enum(["source", "recording", "screenshot"]).default("source"),
+    })
+    .strict()
+    .parse(req.body);
   const job = getJob(req.params.id, res.locals.owner);
   if (busy.has(job.id))
     throw new AppError(409, "Wait for the current operation.");
-  job.storyboard = makeStoryboard(job,input.visual);
+  job.storyboard = makeStoryboard(job, input.visual);
   res.json(publicJob(job));
 });
 app.get("/api/jobs/:id/brag", (req, res) => {
@@ -1006,8 +1095,16 @@ app.post("/api/jobs/:id/promo", (req, res) => {
     );
   if (!job.storyboard)
     throw new AppError(409, "Prepare and review the storyboard first.");
-  const visual = input.useRecording ? "recording" : input.useScreenshot ? "screenshot" : "source";
-  if((job.storyboard.visual || "source") !== visual)throw new AppError(409,"Your selected visuals changed. Prepare the storyboard again before rendering.");
+  const visual = input.useRecording
+    ? "recording"
+    : input.useScreenshot
+      ? "screenshot"
+      : "source";
+  if ((job.storyboard.visual || "source") !== visual)
+    throw new AppError(
+      409,
+      "Your selected visuals changed. Prepare the storyboard again before rendering.",
+    );
   const assets = media.get(job.id) || {};
   if (input.useNarration && !assets.narration)
     throw new AppError(
@@ -1115,7 +1212,11 @@ app.get("/api/jobs/:id/assets/:type", (req, res) => {
       "poster",
       "screenshot",
       "captions",
-      "carousel-1", "carousel-2", "carousel-3", "carousel-4", "carousel-5",
+      "carousel-1",
+      "carousel-2",
+      "carousel-3",
+      "carousel-4",
+      "carousel-5",
     ])
     .parse(req.params.type);
   const bytes = media.get(job.id)?.[type];
@@ -1140,13 +1241,19 @@ app.get("/api/jobs/:id/assets/:type", (req, res) => {
   res.setHeader("Accept-Ranges", "bytes");
   if (req.headers.range) {
     const ranges = req.range(bytes.length);
-    if (!Array.isArray(ranges) || ranges.type !== "bytes" || ranges.length !== 1) {
+    if (
+      !Array.isArray(ranges) ||
+      ranges.type !== "bytes" ||
+      ranges.length !== 1
+    ) {
       res.status(416).setHeader("Content-Range", `bytes */${bytes.length}`);
       res.end();
       return;
     }
     const { start, end } = ranges[0];
-    res.status(206).setHeader("Content-Range", `bytes ${start}-${end}/${bytes.length}`);
+    res
+      .status(206)
+      .setHeader("Content-Range", `bytes ${start}-${end}/${bytes.length}`);
     res.send(bytes.subarray(start, end + 1));
     return;
   }
@@ -1175,13 +1282,23 @@ app.get("/api/jobs/:id/receipt", (req, res) => {
   res.json(jobReceipt(publicJob(job)));
 });
 registerDraftRoutes(app, {
-  getJob, saveJob: persistJob, isBusy: id => busy.has(id),
-  onNarrationChanged: clearNarration, onDraftsChanged: clearCarousel,
+  getJob,
+  saveJob: persistJob,
+  isBusy: (id) => busy.has(id),
+  onNarrationChanged: clearNarration,
+  onDraftsChanged: clearCarousel,
 });
 registerPackRoutes(app, {
-  getJob, publicJob: job => publicJob(job as Job & {owner: string}),
-  getMedia: id => media.get(id), saveMedia: (id, assets) => { media.set(id, assets); },
-  persist: persistJob, operation, capacity, isBusy: id => busy.has(id),
+  getJob,
+  publicJob: (job) => publicJob(job as Job & { owner: string }),
+  getMedia: (id) => media.get(id),
+  saveMedia: (id, assets) => {
+    media.set(id, assets);
+  },
+  persist: persistJob,
+  operation,
+  capacity,
+  isBusy: (id) => busy.has(id),
   carouselAvailable: () => chromiumAvailable,
 });
 app.use("/api", (_req, res) =>
@@ -1243,6 +1360,10 @@ function cleanupExpired() {
 }
 setInterval(cleanupExpired, 60_000).unref();
 await mediaSetup;
-app.listen(port, "127.0.0.1", () =>
-  console.log(`Sudo Launch local API: http://127.0.0.1:${port}`),
+app.listen(port, hosting.bind, () =>
+  console.log(
+    hosting.publicOrigin
+      ? `Sudo Launch demo: ${hosting.publicOrigin}`
+      : `Sudo Launch local API: http://127.0.0.1:${port}`,
+  ),
 );

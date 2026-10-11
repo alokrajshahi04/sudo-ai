@@ -7,9 +7,12 @@ import { AppError, redact } from "./errors";
 import { execute } from "./media";
 
 // Brag's inspect → plan → compose → deliver structure and readable scene pacing
-// are adapted here. This renderer uses bounded source cards, Chromium and FFmpeg;
+// are adapted here. This renderer uses product explainers, Chromium and FFmpeg;
 // it does not execute repository code or the upstream Hyperframes agent skill.
-export function makeStoryboard(job: Job, visual: "source" | "recording" | "screenshot" = "source"): Storyboard {
+export function makeStoryboard(
+  job: Job,
+  visual: "source" | "recording" | "screenshot" = "source",
+): Storyboard {
   const angle = job.positioning?.angles[job.selectedAngle];
   if (!angle || !job.inspection)
     throw new AppError(
@@ -35,9 +38,11 @@ export function makeStoryboard(job: Job, visual: "source" | "recording" | "scree
     job.inspection.description ||
     "An open-source project, presented from its source."
   ).split(/(?<=[.!?])\s+/)[0];
-  const cta = job.site?.reachable ? job.site.finalUrl : job.inspection.private
-    ? "Ask the creator for access"
-    : job.repository;
+  const cta = job.site?.reachable
+    ? job.site.finalUrl
+    : job.inspection.private
+      ? "Ask the creator for access"
+      : job.repository;
   return {
     duration: 25,
     visual,
@@ -55,9 +60,19 @@ export function makeStoryboard(job: Job, visual: "source" | "recording" | "scree
         seconds: 6,
       },
       {
-        label: visual === "source" ? "FROM THE SOURCE" : "SEE THE PRODUCT",
-        heading: visual === "source" ? source.title : visual === "recording" ? "Your product in action" : "A look at your product",
-        detail: visual === "source" ? "Actual repository excerpt · runtime not verified" : visual === "recording" && job.capture ? "Real public-page capture · reviewed steps only" : "Owner-supplied visual · claims still need review",
+        label: visual === "source" ? "THE VALUE" : "SEE THE PRODUCT",
+        heading:
+          visual === "source"
+            ? shortCopy(angle.rationale || summary, 9)
+            : visual === "recording"
+              ? "Your product in action"
+              : "A look at your product",
+        detail:
+          visual === "source"
+            ? "Product explainer · review the supported features"
+            : visual === "recording" && job.capture
+              ? "Real public-page capture · reviewed steps only"
+              : "Owner-supplied visual · claims still need review",
         seconds: 10,
       },
       {
@@ -74,7 +89,7 @@ export function makeStoryboard(job: Job, visual: "source" | "recording" | "scree
     },
     cta,
     workflow:
-      "Brag-inspired inspect → plan → compose → deliver. Chromium + FFmpeg composition using source cards, uploaded visuals or approved public-page capture. Captures cover only reviewed steps, not full product verification. Upstream: https://github.com/latent-spaces/brag (MIT).",
+      "Brag-inspired inspect → plan → compose → deliver. Chromium + FFmpeg composition using product explainers, uploaded visuals or approved public-page capture. Captures cover only reviewed steps, not full product verification. Upstream: https://github.com/latent-spaces/brag (MIT).",
   };
 }
 function xml(value: string) {
@@ -131,12 +146,7 @@ export function sceneSvg(board: Storyboard, index: number, name: string) {
     `<text x="${x}" y="${y}" font-size="${size}" fill="${color}">${xml(value)}</text>`;
   const title = lines(scene.heading, 36, 3);
   const details = lines(scene.detail, 78, 3);
-  const source = board.sourceVisual.excerpt
-    .split("\n")
-    .filter((line) => line.trim())
-    .slice(0, 8)
-    .map((line) => line.slice(0, 95));
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720"><rect width="1280" height="720" fill="#0c0d0c"/><g stroke="#1b211e">${Array.from({ length: 21 }, (_, i) => `<path d="M${i * 64} 0V720"/>`).join("")}${Array.from({ length: 12 }, (_, i) => `<path d="M0 ${i * 64}H1280"/>`).join("")}</g><g font-family="monospace">${text("sudo.launch / " + name.slice(0, 60), 64, 58, 18, "#a5aba4")}${text(scene.label, 64, 140, 16, "#fa563f")}${index === 2 ? `<rect x="64" y="192" width="1152" height="370" rx="8" fill="#141b17" stroke="#35453a"/>${text(board.sourceVisual.file.slice(0, 75), 90, 235, 20, "#a2e8b4")}${source.map((line, i) => text(line, 90, 280 + i * 31, 18, "#c6cec7")).join("")}${text("SOURCE EXCERPT / NOT A RUNTIME CAPTURE", 64, 602, 18, "#a5aba4")}` : `${title.map((line, i) => text(line, 64, 235 + i * 66, 50)).join("")}${details.map((line, i) => text(line, 64, 450 + i * 32, 22, "#a5aba4")).join("")}`}<path d="M64 650H1216" stroke="#364138"/>${text("PROJECT PROMO / REVIEWED DRAFT", 64, 686, 14, "#838e84")}${text(`${String(index + 1).padStart(2, "0")} / 04`, 1110, 686, 14, "#a2e8b4")}</g></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720"><rect width="1280" height="720" fill="#0c0d0c"/><g stroke="#1b211e">${Array.from({ length: 21 }, (_, i) => `<path d="M${i * 64} 0V720"/>`).join("")}${Array.from({ length: 12 }, (_, i) => `<path d="M0 ${i * 64}H1280"/>`).join("")}</g><g font-family="monospace">${text("sudo.launch / " + name.slice(0, 60), 64, 58, 18, "#a5aba4")}${text(scene.label, 64, 140, 16, "#fa563f")}${title.map((line, i) => text(line, 64, 235 + i * 66, 50)).join("")}${details.map((line, i) => text(line, 64, 450 + i * 32, 22, "#a5aba4")).join("")}${index === 2 ? text("PRODUCT EXPLAINER / NOT A RUNTIME CAPTURE", 64, 602, 18, "#a5aba4") : ""}<path d="M64 650H1216" stroke="#364138"/>${text("PROJECT PROMO / REVIEWED DRAFT", 64, 686, 14, "#838e84")}${text(`${String(index + 1).padStart(2, "0")} / 04`, 1110, 686, 14, "#a2e8b4")}</g></svg>`;
 }
 export function captionAss(
   cues: { start: number; end: number; text: string }[],
@@ -175,12 +185,7 @@ export function portraitSceneSvg(
     `<text x="${x}" y="${y}" font-size="${size}" fill="${color}">${xml(value)}</text>`;
   const heading = lines(scene.heading, 20, 5),
     detail = lines(scene.detail, 36, 5);
-  const source = board.sourceVisual.excerpt
-    .split("\n")
-    .filter((l) => l.trim())
-    .slice(0, 10)
-    .map((l) => l.slice(0, 50));
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920"><rect width="1080" height="1920" fill="#0c0d0c"/><path d="M80 292H1000" stroke="#303730"/><g font-family="DejaVu Sans Mono, monospace"><rect x="80" y="120" width="14" height="54" fill="#e62f24"/>${text("sudo.launch_", 120, 163, 36)}${text(name.slice(0, 35), 80, 246, 28, "#91988f")}${text(`0${index + 1} / ${scene.label}`, 80, 385, 30, "#d4b68b")}${heading.map((l, i) => text(l, 80, 550 + i * 96, 72)).join("")}${detail.map((l, i) => text(l, 80, 1120 + i * 54, 40, "#bfc5bb")).join("")}${index === 2 ? `<rect x="65" y="1230" width="950" height="420" rx="8" fill="#171c18"/>${source.map((l, i) => text(l, 90, 1275 + i * 33, 22, "#9cbd9f")).join("")}${text("SOURCE EXCERPT · RUNTIME NOT VERIFIED", 80, 1720, 20, "#d4b68b")}` : ""}<path d="M80 1770H1000" stroke="#303730"/>${text(index === 3 ? "Explore. Try it. Share feedback." : "Built by a developer. Ready for your feedback.", 80, 1820, 22, "#91988f")}</g></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920"><rect width="1080" height="1920" fill="#0c0d0c"/><path d="M80 292H1000" stroke="#303730"/><g font-family="DejaVu Sans Mono, monospace"><rect x="80" y="120" width="14" height="54" fill="#e62f24"/>${text("sudo.launch_", 120, 163, 36)}${text(name.slice(0, 35), 80, 246, 28, "#91988f")}${text(`0${index + 1} / ${scene.label}`, 80, 385, 30, "#d4b68b")}${heading.map((l, i) => text(l, 80, 550 + i * 96, 72)).join("")}${detail.map((l, i) => text(l, 80, 1120 + i * 54, 40, "#bfc5bb")).join("")}${index === 2 ? text("PRODUCT EXPLAINER · NOT RUNTIME FOOTAGE", 80, 1720, 20, "#d4b68b") : ""}<path d="M80 1770H1000" stroke="#303730"/>${text(index === 3 ? "Explore. Try it. Share feedback." : "Built by a developer. Ready for your feedback.", 80, 1820, 22, "#91988f")}</g></svg>`;
 }
 export async function promoAvailable() {
   try {
@@ -246,19 +251,41 @@ export async function renderPromo(
       await writeFile(join(dir, "recording.media"), assets.recording);
     let recordingStart = 0;
     if (assets.recording && assets.recordingTail) {
-      const info = JSON.parse(await execute("ffprobe", ["-v", "error", "-protocol_whitelist", "file,pipe", "-format_whitelist", "mov,matroska,webm", "-show_entries", "format=duration", "-of", "json", join(dir, "recording.media")]));
+      const info = JSON.parse(
+        await execute("ffprobe", [
+          "-v",
+          "error",
+          "-protocol_whitelist",
+          "file,pipe",
+          "-format_whitelist",
+          "mov,matroska,webm",
+          "-show_entries",
+          "format=duration",
+          "-of",
+          "json",
+          join(dir, "recording.media"),
+        ]),
+      );
       const duration = Number(info.format?.duration);
-      if (Number.isFinite(duration)) recordingStart = Math.max(0, duration - board.scenes[2].seconds);
+      if (Number.isFinite(duration))
+        recordingStart = Math.max(0, duration - board.scenes[2].seconds);
     }
     if (assets.screenshot)
       await writeFile(join(dir, "screenshot.png"), assets.screenshot);
+    // Finish Chromium composition before starting FFmpeg to reduce peak memory.
     for (let i = 0; i < board.scenes.length; i++) {
-      progress(`Composing scene ${i + 1} of ${board.scenes.length}`);
+      progress(`Designing scene ${i + 1} of ${board.scenes.length}`);
       const image = join(dir, `scene-${i}.png`);
       await page.setContent(
         `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><style>html,body{margin:0;width:${width}px;height:${height}px;overflow:hidden}</style>${portrait ? portraitSceneSvg(board, i, name) : sceneSvg(board, i, name)}`,
       );
       await page.screenshot({ path: image });
+    }
+    await browser.close();
+    browser = undefined;
+    for (let i = 0; i < board.scenes.length; i++) {
+      progress(`Encoding scene ${i + 1} of ${board.scenes.length}`);
+      const image = join(dir, `scene-${i}.png`);
       const seconds = board.scenes[i].seconds;
       const clip = join(dir, `clip-${i}.mp4`);
       const footage = i === 2 && !!assets.recording;
@@ -312,8 +339,6 @@ export async function renderPromo(
       );
       clips.push(clip);
     }
-    await browser.close();
-    browser = undefined;
     await writeFile(
       join(dir, "clips.txt"),
       clips.map((file) => `file '${file}'`).join("\n"),

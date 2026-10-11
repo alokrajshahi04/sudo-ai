@@ -1018,8 +1018,10 @@ export default function App() {
               )}
             </select>
             <div className="dialog-info">
-              Configure keys in your local .env and restart the API. Never paste
-              credentials into the command bar.
+              {capabilities?.mode === "hosted-demo"
+                ? "This restricted demo uses the owner's configured providers and quota."
+                : "Configure keys in your local .env and restart the API."}{" "}
+              Never paste credentials into the command bar.
             </div>
             <div className="facts">
               <div>
@@ -1037,7 +1039,9 @@ export default function App() {
               </div>
             </div>
             <p className="footnote">
-              This local app reads credentials from the server’s .env. See the{" "}
+              {capabilities?.mode === "hosted-demo"
+                ? "The demo owner manages credentials on the server. See the"
+                : "This local app reads credentials from the server’s .env. See the"}{" "}
               <a
                 href="https://github.com/alokrajshahi04/sudo-ai/blob/main/docs/development.md"
                 target="_blank"
