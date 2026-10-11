@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Job, Capabilities, ModelProvider } from "../shared/types";
 import { launchEvidence } from "../shared/evidence";
-import Readiness from "./Readiness";
 import CaptureControls from "./CaptureControls";
 import DraftEditor from "./DraftEditor";
 import InstagramPack from "./InstagramPack";
@@ -360,80 +359,6 @@ export default function LiveWorkspace({
   useEffect(() => {
     if (audio) setUseVoice(true);
   }, [audio?.url, job.narrationScript]);
-  const isWeb = ["static_vite", "server_web", "multi_service"].includes(
-    job.inspection?.profile || "",
-  );
-  const needsDemo = isWeb && job.launchMode !== "prototype";
-  const reviewed = !job.readiness || !!job.readinessReviewedAt;
-  const launchReady = reviewed && (!needsDemo || !!job.site?.reachable);
-  const readinessReview = (
-    <Readiness
-      job={job}
-      busy={running}
-      modelReady={modelReady}
-      onCopy={(text, label) => void copy(text, label)}
-      onReview={() => void act("readiness-review", { acknowledged: true })}
-      onAnalyze={() => void act("analyze", { provider: model })}
-    >
-      {isWeb && (
-        <div className="deployment-check">
-          <label htmlFor="launch-mode">
-            How are you launching this project?
-          </label>
-          <select
-            id="launch-mode"
-            value={job.launchMode === "prototype" ? "prototype" : "live"}
-            disabled={running}
-            onChange={(e) => void act("launch-mode", { mode: e.target.value })}
-          >
-            <option value="live">Live web product — demo URL required</option>
-            <option value="prototype">
-              Prototype — invite feedback, do not claim a live product
-            </option>
-          </select>
-          {needsDemo && (
-            <>
-              <p>
-                Deploy your project with your preferred host first, then add its
-                public demo link. We will check that it is reachable before
-                drafting launch posts.
-              </p>
-              <form
-                className="inline-form"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void act("verify", { url: site });
-                }}
-              >
-                <label htmlFor="readiness-url">Deployed project URL</label>
-                <input
-                  id="readiness-url"
-                  type="url"
-                  value={site}
-                  placeholder="https://your-project.example"
-                  onChange={(e) => setSite(e.target.value)}
-                  required
-                  disabled={running}
-                />
-                <button className="outline" disabled={running || !site}>
-                  Check deployed link →
-                </button>
-              </form>
-              {job.site && (
-                <p className="footnote">
-                  {job.site.reachable
-                    ? "✓ Link reachable"
-                    : "Link check failed"}{" "}
-                  · HTTP {job.site.httpStatus}. Main interactions still need
-                  review.
-                </p>
-              )}
-            </>
-          )}
-        </div>
-      )}
-    </Readiness>
-  );
   return (
     <section className="workspace-grid">
       <div
@@ -494,36 +419,9 @@ export default function LiveWorkspace({
                 goal, then make the brief yours.
               </p>
             </header>
-            {job.repoFirst && (
-              <ol
-                className="scan-steps"
-                aria-label="Repository analysis progress"
-              >
-                {[
-                  ["Read source", job.phases.inspect.state],
-                  [
-                    "Review readiness",
-                    job.readiness ? "completed" : job.phases.inspect.state,
-                  ],
-                  ["Suggest brief", job.phases.analyze?.state || "idle"],
-                  ["Your review", job.launchBrief ? "completed" : "idle"],
-                ].map(([label, state]) => (
-                  <li key={label} className={state}>
-                    <span>
-                      {state === "completed"
-                        ? "✓"
-                        : state === "running"
-                          ? "◌"
-                          : state === "failed"
-                            ? "!"
-                            : "·"}
-                    </span>
-                    {label}
-                  </li>
-                ))}
-              </ol>
-            )}
-            {readinessReview}
+            <p className="footnote launch-note">
+              Review your launch claims before publishing. Reading source does not verify every feature.
+            </p>
             <div className="brief-layout">
               <form
                 className="brief-editor"
@@ -586,16 +484,14 @@ export default function LiveWorkspace({
                 <div className="flow-actions">
                   <button
                     className="primary"
-                    disabled={running || !job.inspection || !launchReady}
+                    disabled={running || !job.inspection}
                   >
                     Continue to launch stories →
                   </button>
                   <span>
-                    {!launchReady
-                      ? "Review readiness and add a demo URL (or choose prototype) first."
-                      : job.analysis
-                        ? "Suggestions need your confirmation."
-                        : "You can write the brief yourself."}
+                    {job.analysis
+                      ? "Suggestions need your confirmation."
+                      : "You can write the brief yourself."}
                   </span>
                 </div>
                 {!job.inspection && !running && (
@@ -862,18 +758,6 @@ export default function LiveWorkspace({
                 </details>
               </div>
             </details>
-            {!launchReady && (
-              <div className="setup-needed">
-                <strong>Review readiness before writing posts.</strong>
-                <p>
-                  Check the suggestions and provide a reachable demo URL, or
-                  choose a prototype launch.
-                </p>
-                <button className="outline" onClick={() => onStage("overview")}>
-                  Check project readiness →
-                </button>
-              </div>
-            )}
             <div className="generation-controls">
               <div className="model-summary">
                 <span className="micro">GENERATION MODEL</span>
@@ -895,7 +779,6 @@ export default function LiveWorkspace({
                     running ||
                     !job.inspection ||
                     !job.launchBrief ||
-                    !launchReady ||
                     (includeResearch && query.trim().length < 2)
                   }
                   onClick={() => void generateStories()}

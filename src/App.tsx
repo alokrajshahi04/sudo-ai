@@ -387,7 +387,7 @@ export default function App() {
       setStage("overview");
       setPanel(null);
       setNotice(
-        "Reading the source, reviewing readiness, and suggesting a brief for you to confirm.",
+        "Reading the source and preparing launch context.",
       );
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "Could not start launch.");
@@ -946,9 +946,8 @@ export default function App() {
           >
             <h2>Let’s prepare your project’s launch.</h2>
             <p>
-              Start with the repository. We’ll read selected source, review
-              launch readiness, and suggest an audience and brief for you to
-              confirm.
+              Start with the repository. We’ll read selected source and help
+              you prepare launch content for your audience.
             </p>
             <label htmlFor="repo">GitHub repository</label>
             <input
@@ -962,7 +961,7 @@ export default function App() {
             />
             <label htmlFor="demo-url">Deployed project URL <span className="dim">Optional · add it if available</span></label>
             <input id="demo-url" type="url" value={demoUrl} maxLength={1000} placeholder="https://your-project.example" onChange={e=>setDemoUrl(e.target.value)}/>
-            <p className="footnote">Web products need a reachable demo before launch posts. You can also launch an explicitly labeled prototype; CLI/library projects can use their repository.</p>
+            <p className="footnote">A demo link is optional. You can create launch content directly from your repository.</p>
             <div className="dialog-info">
               {capabilities?.models.find((m) => m.provider === model)
                 ?.configured

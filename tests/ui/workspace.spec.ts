@@ -723,44 +723,6 @@ test("repo-first model suggestions are editable and require owner confirmation",
     .click();
   expect(backend.getJob().launchBrief?.audience).toBe("New contributors");
 });
-test("readiness gives a portable coding-agent handoff with source references", async ({
-  page,
-}, testInfo) => {
-  const job = fixture();
-  job.readiness = {
-    coverage: "Selected source, runtime not executed.",
-    findings: [
-      {
-        id: "setup",
-        severity: "action",
-        title: "Make setup reproducible",
-        detail: "Review the README quickstart before publishing.",
-        files: ["README.md"],
-        evidenceIds: ["source-readme"],
-      },
-    ],
-    agentPrompt:
-      "Review README.md at " +
-      job.inspection!.revision +
-      ". Confirm findings before fixing. Never claim tests passed unless run.",
-  };
-  await mockApi(page, { restored: job });
-  await page.goto("/");
-  await page.getByRole("button", { name: "Check project readiness →" }).click();
-  await page
-    .getByText("One-shot coding-agent handoff", { exact: true })
-    .click();
-  await expect(page.getByLabel("Paste into your coding agent")).toHaveValue(
-    job.readiness.agentPrompt,
-  );
-  await expect(
-    page.getByText("Make setup reproducible", { exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Copy one-shot fix prompt →" })
-    .click();
-  await page.screenshot({ path: testInfo.outputPath("readiness-handoff.png") });
-});
 test("promo storyboard gates rendering; music failure preserves the text pack", async ({
   page,
 }, testInfo) => {
@@ -840,19 +802,19 @@ test("API outage is explained in discovery and recovers without reloading or Git
   ).toBeVisible();
 });
 
-test("readiness gate is visible before the brief and a web launch requires a demo or prototype choice",async({page},testInfo)=>{
+test("readiness panel is absent and web projects generate stories without a review or demo gate",async({page},testInfo)=>{
  const job=fixture("web-product","static_vite");job.launchMode="live";
- job.readiness={coverage:"Bounded source review",agentPrompt:"Verify a browser credential issue before fixing.",findings:[{id:"ai-1",origin:"ai",severity:"review",title:"Review browser credentials",detail:"A privileged key appears in browser source.",recommendation:"Verify the built bundle.",evidenceQuote:"process.env.API_KEY",files:["src/App.tsx"],evidenceIds:["source-readme"]}]};
+ job.readiness={coverage:"Legacy source review",agentPrompt:"Legacy prompt",findings:[{id:"ai-1",origin:"ai",severity:"review",title:"Review browser credentials",detail:"Old finding",files:["src/App.tsx"],evidenceIds:["source-readme"]}]};
  const backend=await mockApi(page,{restored:job});await page.goto('/');
- await expect(page.getByText('Review browser credentials',{exact:true})).toBeVisible();
- const continueButton=page.getByRole('button',{name:'Continue to launch stories →'});await expect(continueButton).toBeDisabled();
- await page.getByRole('button',{name:'Check project readiness →'}).click();
- await expect(page.getByText('process.env.API_KEY',{exact:true})).toBeVisible();
- await page.getByRole('button',{name:'I reviewed the findings →'}).click();await expect(continueButton).toBeDisabled();
- await page.getByLabel('Deployed project URL',{exact:true}).fill('https://demo.example');
- await page.getByRole('button',{name:'Check deployed link →'}).click();await expect(continueButton).toBeEnabled();
- expect(backend.calls).not.toContain('position');
- await page.screenshot({path:testInfo.outputPath('readiness-gate.png')});
+ await expect(page.getByRole('button',{name:'Check project readiness →'})).toHaveCount(0);
+ await expect(page.getByText('Review browser credentials',{exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:'Continue to launch stories →'}).click();
+ await page.getByText('Research settings',{exact:false}).first().click();
+ await page.getByLabel('Research related projects before writing').uncheck();
+ await page.getByRole('button',{name:'Generate two launch stories →'}).click();
+ await expect(page.getByRole('button',{name:/Bring community work together/})).toBeVisible();
+ expect(backend.calls).toContain('position');expect(backend.calls).not.toContain('readiness-review');expect(backend.calls).not.toContain('verify');
+ await page.screenshot({path:testInfo.outputPath('no-readiness-panel.png')});
 });
 test("deployed capture requires reviewed steps and keeps footage visible before rendering",async({page},testInfo)=>{
  const job=fixture();job.positioning=positioning();job.launchStrategy={launchType:'showcase',angleTitle:job.positioning!.angles[0].title,createdAt:new Date().toISOString(),checklist:[],channels:[]};

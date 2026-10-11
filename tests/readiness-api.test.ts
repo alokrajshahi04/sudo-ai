@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn,spawnSync} from 'node:child_process';
-test('Readiness acknowledgement belongs to the session and web launch gates are enforced before model execution', async()=>{
+test('Marketing generation needs neither readiness acknowledgement nor deployed URL', async()=>{
  const port=3307,base=`http://127.0.0.1:${port}`;
  const child=spawn(process.execPath,['--import','tsx','tests/fixtures/api-runner.ts'],{env:{...process.env,PORT:String(port),GOOGLE_API_KEY:'fixture-google-key',NEBIUS_API_KEY:'',CUSTOM_MODEL_API_KEY:'',ELEVENLABS_API_KEY:''},stdio:['ignore','pipe','pipe']});
  try {
@@ -13,15 +13,10 @@ test('Readiness acknowledgement belongs to the session and web launch gates are 
   const root=`/api/jobs/${job.id}`;
   async function poll(){for(let i=0;i<100;i++){job=await(await fetch(base+root,{headers:{Cookie:cookie}})).json();if(!Object.values(job.phases).some((p:any)=>p.state==='running'))return;await new Promise(r=>setTimeout(r,50));}throw new Error('Job timed out');}
   await poll();
-  let response=await post(root+'/position',{provider:'google'});assert.equal(response.status,409);assert.match((await response.json()).error,/acknowledge/);
-  response=await fetch(base+root+'/readiness-review',{method:'POST',headers:{...headers,Cookie:''},body:JSON.stringify({acknowledged:true})});assert.equal(response.status,404);
-  response=await post(root+'/readiness-review',{acknowledged:true});assert.equal(response.status,200);
-  response=await post(root+'/position',{provider:'google'});assert.equal(response.status,409);assert.match((await response.json()).error,/Deploy/);
+  assert.equal(job.readinessReviewedAt,undefined);assert.equal(job.site,undefined);
+  let response=await post(root+'/position',{provider:'google'});assert.equal(response.status,202);await poll();assert.equal(job.phases.position.state,'completed');assert.equal(job.positioning.angles.length,2);
+  response=await fetch(base+root+'/position',{method:'POST',headers:{...headers,Cookie:''},body:JSON.stringify({provider:'google'})});assert.equal(response.status,404);
   response=await post(root+'/capture',{url:'https://example.com',approved:false,steps:[]});assert.equal(response.status,400);
-  response=await post(root+'/launch-mode',{mode:'source'});assert.equal(response.status,200);
-  response=await post(root+'/position',{provider:'google'});assert.equal(response.status,409);
-  response=await post(root+'/launch-mode',{mode:'prototype'});assert.equal(response.status,200);
-  response=await post(root+'/position',{provider:'google'});assert.equal(response.status,202);await poll();assert.equal(job.phases.position.state,'completed');assert.equal(job.positioning.angles.length,2);
   response=await fetch(base+root+'/calendar?start='+encodeURIComponent(new Date(Date.now()+86400000).toISOString()),{headers:{Cookie:cookie}});assert.equal(response.status,200);assert.match(await response.text(),/BEGIN:VCALENDAR/);
   response=await fetch(base+root+'/calendar?start='+encodeURIComponent(new Date(Date.now()+86400000).toISOString()));assert.equal(response.status,404);
   if(spawnSync('ffmpeg',['-version']).status===0){

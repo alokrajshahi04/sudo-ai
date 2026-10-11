@@ -9,7 +9,7 @@ Sudo Launch helps student and solo developers explain, demonstrate and share pro
 ## What it does
 
 - Reads selected source at a pinned commit across web apps, Python tools, libraries, workspaces and prototypes. It never installs or executes the repository.
-- Combines deterministic readiness checks with model suggestions tied to actual source quotations. Provides a coding-agent handoff for fixes you choose to make elsewhere.
+- Uses repository context and your audience/goal to write launch stories, without readiness checklists or deployment gates.
 - Writes two evidence-cited launch stories using Gemma through AI Studio, Nebius GLM, or a locally configured compatible model. You confirm the brief and review findings first.
 - Records an approved public deployed URL with explicit click/scroll steps, or accepts your recording and screenshots.
 - Composes portrait 1080×1920 or landscape 1280×720 MP4s using a reviewed storyboard, optional ElevenLabs narration/music, and captions aligned to the generated voice. Exports a poster and SRT too.

@@ -28,7 +28,6 @@ import {
 import { GitHubConnections } from "./auth";
 import { analyzeProject, reviewReadiness } from "./analysis";
 import { launchCalendar } from "./calendar";
-import { requireLaunchReadiness } from "./launch-readiness";
 import { captureSite, captureSchema, captureAvailable } from "./capture";
 import { makeStoryboard, promoAvailable, renderPromo } from "./promo";
 import { registerDraftRoutes } from "./drafts";
@@ -387,7 +386,7 @@ async function readProject(job: Job & { owner: string }) {
   }
   job.inspection = inspected;
   job.readinessReviewedAt = undefined;
-  job.progressStep = "Reviewing source readiness";
+  job.progressStep = "Preparing launch context";
   job.readiness = reviewReadiness(job.repository, inspected, job.analysis?.findings);
   if (!job.repoFirst || job.launchBrief) {
     job.progressStep = undefined;
@@ -471,7 +470,7 @@ app.post("/api/jobs", (req, res) => {
       ? sanitizeBrief(input.launchBrief)
       : undefined,
     modelPreference: input.model,
-    launchMode: input.launchMode || "live",
+    launchMode: input.launchMode || (input.demoUrl ? "live" : "source"),
     requestedDemoUrl: input.demoUrl,
     selectedAngle: 0,
     createdAt: new Date().toISOString(),
@@ -650,7 +649,6 @@ app.post("/api/jobs/:id/position", (req, res) => {
     throw new AppError(409, "Complete repository inspection first.");
   if (!job.launchBrief)
     throw new AppError(409, "Confirm the audience and launch goal first.");
-  requireLaunchReadiness(job);
   const c = modelConfig(input.provider);
   if (!c.key || !c.model || !c.base)
     throw new AppError(

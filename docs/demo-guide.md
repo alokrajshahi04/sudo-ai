@@ -5,8 +5,8 @@ Pitch: **Developers can build fast but struggle to explain and share what they b
 ## Five-minute walkthrough
 
 1. Open http://localhost:5173. Start from GitHub profile discovery or paste any accessible repository. PokeChess is the prepared hero example: `https://github.com/alokrajshahi04/pokechess`, demo `https://pokechess1.vercel.app`.
-2. Show source coverage and a concrete readiness finding with a quote, recommendation and source link. These are suggestions to verify, not certified bugs. Copy the coding-agent handoff if asked how developers act on them.
-3. Acknowledge the findings, review the proposed audience/goal, then confirm the brief. Web apps require a reachable demo or an explicit prototype launch. Show that CLI/library projects use the same pipeline without needing a website.
+2. Show repository context and source coverage. Explain that source inspection does not certify runtime behavior.
+3. Review the audience/goal, then confirm the brief and continue to launch stories. There is no readiness checklist or deployed URL requirement.
 4. Generate two launch stories with the explicitly selected model. For venue resilience, skip optional research in the live walkthrough. Choose a story, edit the LinkedIn/X/Instagram/narration drafts, review the claims and save. Show that polling and reload preserve the saved copy.
 5. Expand **Create a launch video**. Choose portrait, record the deployed demo with reviewed exact-label clicks (for PokeChess: `PRESS START`, `Skip`, `Local PvP Pass & Play Mode`, `Start Battle ⚔️`; turn scrolling off), prepare its storyboard, review the short narration and approve ElevenLabs generation. Render with generated voice and aligned captions. Show the MP4, generate the five-slide carousel, review its screenshot-backed proof slide, and download the complete ZIP. Choose a future launch time to include optional manual calendar reminders.
 

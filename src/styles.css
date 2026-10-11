@@ -687,7 +687,7 @@ dialog label {
   color: #c3c3ba;
   margin: 21px 0 8px;
 }
-dialog input,
+dialog input:not([type="checkbox"]),
 dialog textarea,
 dialog select {
   display: block;
@@ -1168,6 +1168,10 @@ dialog textarea {
 .checkbox-label input {
   accent-color: var(--red);
   flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 3px 0 0;
 }
 .preserve-lines {
   white-space: pre-wrap;
@@ -2279,3 +2283,8 @@ input[type="file"]::file-selector-button {
 .launch-calendar p { font-size: 12px; line-height: 1.7; max-width: 80ch; }
 .launch-calendar label { display: block; font-size: 12px; margin: 16px 0 8px; }
 .launch-calendar input { width: min(100%, 320px); display: block; margin-bottom: 14px; color-scheme: dark; }
+
+.launch-note { margin: 0 0 18px; }
+dialog { overflow-x: hidden; }
+dialog .checkbox-label { min-width: 0; line-height: 1.7; overflow-wrap: anywhere; }
+dialog .checkbox-label input[type="checkbox"] { flex: 0 0 16px; display: inline-block; }

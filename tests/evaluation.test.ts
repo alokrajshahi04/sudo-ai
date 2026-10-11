@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { validateAnalysis } from "../server/analysis";
-import { requireLaunchReadiness } from "../server/launch-readiness";
 import {
   captionCues,
   captionsSrt,
@@ -66,25 +65,6 @@ test("AI readiness rejects invented quotations and unknown evidence while retain
       new Set(["source-1"]),
     ),
   );
-});
-test("Launch gate requires review and a reachable demo for web apps; prototypes and CLI remain honest alternatives", () => {
-  const job = {
-    inspection: { profile: "static_vite" },
-    launchMode: "live",
-  } as Job;
-  assert.throws(() => requireLaunchReadiness(job), /acknowledge/);
-  job.readinessReviewedAt = new Date().toISOString();
-  assert.throws(() => requireLaunchReadiness(job), /Deploy this web project/);
-  job.launchMode = "source";
-  assert.throws(() => requireLaunchReadiness(job), /Deploy/);
-  job.launchMode = "prototype";
-  requireLaunchReadiness(job);
-  job.launchMode = "live";
-  job.site = { reachable: true } as Job["site"];
-  requireLaunchReadiness(job);
-  job.site = undefined;
-  job.inspection!.profile = "python_cli";
-  requireLaunchReadiness(job);
 });
 test("Speech captions use provider timings, preserve text and escape subtitle controls", () => {
   const text = "A small project ready for your feedback.";

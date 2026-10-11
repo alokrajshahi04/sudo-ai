@@ -45,7 +45,7 @@ Nebius requests strict JSON-schema output for analysis and positioning, with enu
 
 1. Paste a repository or choose one from discovery. Selected private files require explicit approval for source reading and model transfer. No code is executed.
 2. Read an immutable commit/tree and up to 12 bounded README/manifest/entry files. Secret-file paths are excluded and common tokens are redacted. Coverage remains partial.
-3. Review prominent deterministic and source-quoted model readiness tasks and a copyable coding-agent handoff. Acknowledge this review before story generation. Web apps require a reachable public URL or an explicit prototype launch; CLI/library/docs can launch from source. Findings are not runtime certification; the coding agent must confirm them before fixing anything.
+3. Review repository context and confirm your audience/goal. Continue straight to launch stories: no readiness acknowledgement or deployed URL is required. Source inspection is context, not runtime certification.
 4. The chosen model suggests a product summary, audience, goal, context and assumptions. These do **not** become a confirmed brief automatically. Edit and confirm them. Without a configured model, source review and manual brief entry still work.
 5. Generate two stories with evidence IDs, LinkedIn/X drafts and narration. Optional bounded GitHub/link research runs first and stops the sequence on failure. Private projects default to research disabled; queries are public and must not contain private details. Agent-Reach/social search is pending.
 6. Choose a story, prepare the sharing plan and download the Markdown kit/JSON receipt. Review and publish yourself.
@@ -91,7 +91,7 @@ The composition browser renders only escaped, app-generated SVG and denies scrip
 
 `npm test` covers six source categories, ownership, origin policy, private-source consent and secret-file exclusion, OAuth state/nonce/PKCE and callback session restoration, bounded model schemas, SSRF policy, source-readiness handoffs, and real media rendering. Promo tests skip only when FFmpeg/Chromium are unavailable. Set `PLAYWRIGHT_CHROMIUM_PATH` for an existing browser.
 
-`npm run test:ui` checks repo-first suggestion/confirmation, onboarding/shortcuts, two generic profile-to-pack flows, missing setup, errors/retries, correction/resume, export content, readiness handoff and storyboard/audio gates at 1440×900, 1280×720 and 390×844. Screenshots/traces are ignored under `test-results/`. Browser fixtures verify UX, not live inference.
+`npm run test:ui` checks repo-first suggestion/confirmation, onboarding/shortcuts, two generic profile-to-pack flows, missing setup, errors/retries, correction/resume, export content, absence of readiness/deployment gates and storyboard/audio approval at 1440×900, 1280×720 and 390×844. Screenshots/traces are ignored under `test-results/`. Browser fixtures verify UX, not live inference.
 
 Live checks on 2026-10-10: both Gemma 4 variants responded; the 26B A4B model produced a Tolti summary and valid two-story pack that described its starter/prototype status. ElevenLabs TTS and 25s instrumental music returned real audio; these were mixed into a verified 25s 1280×720 MP4 and PNG poster. OAuth uses controlled integration responses until the participant creates the OAuth app. Nebius is configured and has passed real brief/positioning calls; provider access is distinct from fixture checks.
 
