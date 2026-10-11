@@ -988,8 +988,9 @@ export default function App() {
               {creating ? "Starting source review…" : "Read my project →"}
             </button>
             <p className="footnote">
-              We don’t run repository code. Your work is saved on this computer
-              in SQLite and survives server restarts.
+              We don’t run repository code. Your work is saved in SQLite
+              {capabilities?.mode === "hosted-demo" ? " on the server" : " on this computer"}
+              {" "}and survives server restarts.
             </p>
           </form>
         )}
@@ -1023,7 +1024,7 @@ export default function App() {
             </select>
             <div className="dialog-info">
               {capabilities?.mode === "hosted-demo"
-                ? "This restricted demo uses the owner's configured providers and quota."
+                ? "This live demo uses the owner's configured providers and quota."
                 : "Configure keys in your local .env and restart the API."}{" "}
               Never paste credentials into the command bar.
             </div>
@@ -1075,7 +1076,7 @@ export default function App() {
                   <p>
                     OAuth uses GitHub’s broad <code>repo</code> permission,
                     which includes write access. Sudo Launch only reads
-                    repositories. Tokens stay in local server memory and expire
+                    repositories. Tokens stay in server memory and expire
                     with the session.
                   </p>
                   <button
