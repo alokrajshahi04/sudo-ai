@@ -1154,7 +1154,7 @@ app.post("/api/jobs/:id/promo", (req, res) => {
       job.artifacts = job.artifacts.filter(
         (a) => !["video", "poster"].includes(a.type),
       );
-      const provenance = `Brag-inspired storyboard; Chromium + FFmpeg composition. ${input.useRecording ? "Real recording in the middle scene" : input.useScreenshot ? "Owner-supplied or captured screenshot" : "Actual source excerpt as a visual; no runtime footage"}. ${input.useNarration ? "ElevenLabs narration. " : ""}${input.useMusic ? "ElevenLabs music. " : ""}Not an interaction verification.`;
+      const provenance = `Brag-inspired storyboard; Chromium + FFmpeg composition. ${input.useRecording ? "Real recording in the middle scene" : input.useScreenshot ? "Owner-supplied or captured screenshot" : "Branded product explainer; no runtime footage"}. ${input.useNarration ? "ElevenLabs narration. " : ""}${input.useMusic ? "ElevenLabs music. " : ""}Not an interaction verification.`;
       for (const type of ["video", "poster"] as const)
         job.artifacts.push({
           type,

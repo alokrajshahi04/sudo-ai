@@ -1,5 +1,7 @@
 # Render demo deployment
 
+Hosted evaluation URL: https://sudo-launch.onrender.com. It requires the owner's demo access credentials; it is not an open public BYOK service.
+
 Use the repository's `render.yaml` through Render's Blueprint dashboard. The Docker image installs Chromium, its recording encoder, system FFmpeg and the built React UI. One Node service serves both the UI and `/api`.
 
 ## Instance and cost
@@ -24,8 +26,12 @@ Jobs are scoped to each browser session and retained for seven days by default. 
 
 For GitHub OAuth, register the exact hosted callback `https://YOUR-SERVICE.onrender.com/api/auth/github/callback`, then set the hosted app's client ID and secret. Use a separate OAuth app if you need local and hosted demos simultaneously. Do not copy a broad personal GitHub token into a service shared with judges.
 
+For the current evaluation service, the callback is `https://sudo-launch.onrender.com/api/auth/github/callback`. Its separate app credentials can be saved locally as `GITHUB_RENDER_CLIENT_ID` and `GITHUB_RENDER_CLIENT_SECRET`, then securely mapped to Render's `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`. The localhost OAuth app can keep its original callback.
+
 ## Deployment checks
 
 The Docker build excludes `.env`, `.local`, databases, browser states and local videos. Automatic deployments are disabled so new GitHub commits do not replace a working evaluation demo unexpectedly. Deploy the intended main-branch commit manually.
 
 After deployment, check `/healthz`, the authentication prompt, API capabilities, public repository discovery and a saved-session refresh. Test actual narration and video generation with a small public repo before evaluation. Local prepared launch videos remain useful offline backups; they are not automatically included on the deployed service. Monitor memory and provider quotas in their dashboards. Suspend the compute service when you no longer need it; retained disks can continue to incur storage charges.
+
+The initial hosted verification on 2026-10-11 completed public discovery (23 eligible projects), actual Nebius positioning, bounded Chromium capture of PokeChess, reviewed copy, real ElevenLabs aligned narration, five carousel PNGs and a 25-second portrait MP4/ZIP. The capture opened the project, pressed Start, skipped onboarding and opened the Pokédex; it does not certify chess gameplay, AI or multiplayer. Verification files and the browser's session cookie remain private under `.local/render-verification/`.
